@@ -27,5 +27,8 @@
   "author": "yj.gaia",
   "dependencies": {
     "@esotericsoftware/spine-core": "4.2.70"
+  },
+  "peerDependencies": {
+    "babylonjs": "^7.42.0"
   }
 }

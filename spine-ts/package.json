@@ -74,7 +74,8 @@
     "spine-pixi-v7",
     "spine-pixi-v8",
     "spine-canvaskit",
-    "spine-webgl"
+    "spine-webgl",
+    "babylonjs-spine"
   ],
   "devDependencies": {
     "@types/offscreencanvas": "^2019.6.4",
