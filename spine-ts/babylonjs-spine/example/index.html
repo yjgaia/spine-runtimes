@@ -26,76 +26,113 @@
   <body>
     <canvas id="renderCanvas"></canvas>
     <script>
-      let skeletonFile = "assets/raptor-pro.json";
-      let atlasFile = skeletonFile
-        .replace("-pro", "")
-        .replace("-ess", "")
-        .replace(".json", ".atlas");
-      let animation = "walk";
+      let engine, scene, camera;
+      let assetManager;
+      let skeletonMesh;
 
-      // Get the canvas DOM element
-      var canvas = document.getElementById("renderCanvas");
-      // Load the 3D engine
-      var engine = new BABYLON.Engine(canvas, true, {
-        preserveDrawingBuffer: true,
-        stencil: true,
-      });
-      // CreateScene function that creates and return the scene
-      var createScene = function () {
-        // Create a basic BJS Scene object
-        var scene = new BABYLON.Scene(engine);
-        // Create a FreeCamera, and set its position to {x: 0, y: 5, z: -10}
-        var camera = new BABYLON.FreeCamera(
-          "camera1",
-          new BABYLON.Vector3(0, 5, -10),
+      // Paths to your Spine files (adjust these for your own folder/filenames)
+      let baseUrl = "assets/";
+      let skeletonFile = "raptor-pro.json";
+      let atlasFile = "raptor.atlas";
+      let animation = "walk"; // The name of the animation to play
+
+      /**
+       * Initializes Babylon engine and scene.
+       */
+      function init() {
+        // Get canvas
+        const canvas = document.getElementById("renderCanvas");
+
+        // Create engine
+        engine = new BABYLON.Engine(canvas, true);
+
+        // Create a scene
+        scene = new BABYLON.Scene(engine);
+
+        // Set up a camera (ArcRotateCamera for easy orbiting, similar to OrbitControls in Three.js)
+        camera = new BABYLON.ArcRotateCamera(
+          "camera",
+          Math.PI / 2, // alpha
+          Math.PI / 4, // beta
+          500, // radius
+          new BABYLON.Vector3(0, 0, 0),
           scene,
         );
-        // Target the camera to scene origin
-        camera.setTarget(BABYLON.Vector3.Zero());
-        // Attach the camera to the canvas
-        camera.attachControl(canvas, false);
-        // Create a basic light, aiming 0, 1, 0 - meaning, to the sky
-        var light = new BABYLON.HemisphericLight(
-          "light1",
+        camera.attachControl(canvas, true);
+
+        // Create a basic light
+        new BABYLON.HemisphericLight(
+          "light",
           new BABYLON.Vector3(0, 1, 0),
           scene,
         );
-        // Return the created scene
-        return scene;
-      };
-      // call the createScene function
-      var scene = createScene();
 
-      var assetManager = new spine.AssetManager(scene);
-      assetManager.loadText(skeletonFile);
-      assetManager.loadTextureAtlas(atlasFile);
+        // Create an asset manager for Spine
+        assetManager = new spine.AssetManager(scene, baseUrl);
 
-      function load(name, scale) {
-        if (assetManager.isLoadingComplete()) {
-          const atlas = assetManager.require(atlasFile);
-          const atlasLoader = new spine.AtlasAttachmentLoader(atlas);
-          const skeletonJson = new spine.SkeletonJson(atlasLoader);
+        // Queue loads for skeleton JSON and its atlas
+        assetManager.loadText(skeletonFile);
+        assetManager.loadTextureAtlas(atlasFile);
 
-          skeletonJson.scale = 0.4;
-          const skeletonData = skeletonJson.readSkeletonData(
-            assetManager.require(skeletonFile),
-          );
+        // Once the assets are queued, start the render loop
+        engine.runRenderLoop(() => {
+          if (assetManager.isLoadingComplete() && !skeletonMesh) {
+            // Load skeleton once everything is ready
+            loadSkeleton();
+          }
+          if (skeletonMesh) {
+            // Calculate delta time for spine animation
+            const deltaTime = engine.getDeltaTime() / 1000;
+            skeletonMesh.update(deltaTime);
+          }
+          scene.render();
+        });
 
-          skeletonMesh = new spine.SkeletonMesh({ skeletonData });
-          skeletonMesh.state.setAnimation(0, animation, true);
-          mesh.add(skeletonMesh);
-        } else requestAnimationFrame(load);
+        // Handle window resize
+        window.addEventListener("resize", () => {
+          engine.resize();
+        });
       }
-      requestAnimationFrame(load);
 
-      // run the render loop
-      engine.runRenderLoop(function () {
-        scene.render();
-      });
-      // the canvas/window resize event handler
-      window.addEventListener("resize", function () {
-        engine.resize();
-      });
+      /**
+       * Called when the AssetManager has finished loading all required assets.
+       * Creates the Spine SkeletonMesh and adds it to the scene.
+       */
+      function loadSkeleton() {
+        // Retrieve text data for .json
+        const jsonData = assetManager.require(skeletonFile);
+
+        // Retrieve the atlas (which also has the .png loaded)
+        const atlas = assetManager.require(atlasFile);
+
+        // Create the AtlasAttachmentLoader from your atlas
+        const atlasLoader = new spine.AtlasAttachmentLoader(atlas);
+
+        // Create a SkeletonJson parser
+        const skeletonJson = new spine.SkeletonJson(atlasLoader);
+        skeletonJson.scale = 0.2; // scale your model if needed
+
+        // Parse skeleton data
+        const skeletonData = skeletonJson.readSkeletonData(jsonData);
+
+        // Create the SkeletonMesh
+        skeletonMesh = new spine.SkeletonMesh("skeletonData", scene, {
+          skeletonData,
+        });
+
+        // Set an animation
+        skeletonMesh.animationState.setAnimation(0, animation, true);
+
+        // Adjust skeletonMesh position or rotation if you like
+        // skeletonMesh.position.y = -100;
+
+        // Add skeletonMesh's root node to the Babylon scene
+        // (Since SkeletonMesh extends TransformNode, we can just add it to the scene)
+        skeletonMesh.setParent(scene.rootNodes[0]);
+      }
+
+      // Start everything
+      init();
     </script>
   </body>
 </html>

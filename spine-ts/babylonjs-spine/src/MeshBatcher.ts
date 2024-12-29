@@ -1,443 +1,289 @@
-import { BabylonJsTexture } from "./BabylonJsTexture.js";
+import * as BABYLON from "babylonjs";
 import { BlendMode } from "@esotericsoftware/spine-core";
-import { SkeletonMesh } from "./SkeletonMesh.js";
 
-export type MaterialWithMap = THREE.Material & { map: THREE.Texture | null };
-export class MeshBatcher extends THREE.Mesh {
-	public static MAX_VERTICES = 10920;
+/**
+ * MaterialWithTexture
+ *
+ * A material interface with an optional spineTexture to store the actual Babylon Texture used by Spine.
+ */
+export interface MaterialWithTexture extends BABYLON.Material {
+	spineTexture?: BABYLON.Texture;
+}
 
-	// private static VERTEX_SIZE = 9;
-	private vertexSize = 9;
-	private vertexBuffer: THREE.InterleavedBuffer;
+/**
+ * MeshBatcher
+ *
+ * This class handles batching of vertices and indices from multiple Spine slot attachments
+ * into a single Babylon Mesh for efficiency. It uses SubMesh to separate different materials
+ * (textures, blend modes).
+ */
+export class MeshBatcher {
+	public static MAX_VERTICES = 10920; // Arbitrary example limit
+
+	private _scene: BABYLON.Scene;
+	public mesh: BABYLON.Mesh;
+
+	// CPU-side buffers
 	private vertices: Float32Array;
-	private verticesLength = 0;
+	private colors: Float32Array;
+	private uv: Float32Array;
 	private indices: Uint16Array;
-	private indicesLength = 0;
-	private materialGroups: [number, number, number][] = [];
 
+	private vertexCount = 0;
+	private indexCount = 0;
+
+	// SubMesh grouping
+	private materialGroups: Array<{
+		indexStart: number;
+		indexCount: number;
+		materialIndex: number;
+	}> = [];
+
+	// Material list
+	public materials: MaterialWithTexture[] = [];
+
+	// Kinds for vertex data
+	private positionsKind = BABYLON.VertexBuffer.PositionKind;
+	private colorKind = BABYLON.VertexBuffer.ColorKind;
+	private uvKind = BABYLON.VertexBuffer.UVKind;
+
+	/**
+	 * @param scene - The current Babylon.js Scene
+	 * @param maxVertices - Maximum vertices in the batch
+	 */
 	constructor(
+		scene: BABYLON.Scene,
 		maxVertices: number = MeshBatcher.MAX_VERTICES,
-		private materialFactory: (
-			parameters: THREE.MaterialParameters,
-		) => MaterialWithMap,
-		private twoColorTint = true,
 	) {
-		super();
+		this._scene = scene;
 
-		if (maxVertices > MeshBatcher.MAX_VERTICES) {
-			throw new Error(
-				"Can't have more than 10920 triangles per batch: " + maxVertices,
-			);
-		}
+		// Allocate buffers
+		this.vertices = new Float32Array(maxVertices * 3); // x, y, z
+		this.colors = new Float32Array(maxVertices * 4); // r, g, b, a
+		this.uv = new Float32Array(maxVertices * 2); // u, v
+		this.indices = new Uint16Array(maxVertices * 3);
 
-		if (twoColorTint) {
-			this.vertexSize += 3;
-		}
-
-		let vertices = this.vertices = new Float32Array(
-			maxVertices * this.vertexSize,
-		);
-		let indices = this.indices = new Uint16Array(maxVertices * 3);
-		let geo = new THREE.BufferGeometry();
-		let vertexBuffer = this.vertexBuffer = new THREE.InterleavedBuffer(
-			vertices,
-			this.vertexSize,
-		);
-		vertexBuffer.usage = WebGLRenderingContext.DYNAMIC_DRAW;
-		geo.setAttribute(
-			"position",
-			new THREE.InterleavedBufferAttribute(vertexBuffer, 3, 0, false),
-		);
-		geo.setAttribute(
-			"color",
-			new THREE.InterleavedBufferAttribute(vertexBuffer, 4, 3, false),
-		);
-		geo.setAttribute(
-			"uv",
-			new THREE.InterleavedBufferAttribute(vertexBuffer, 2, 7, false),
-		);
-		if (twoColorTint) {
-			geo.setAttribute(
-				"darkcolor",
-				new THREE.InterleavedBufferAttribute(vertexBuffer, 3, 9, false),
-			);
-		}
-		geo.setIndex(new THREE.BufferAttribute(indices, 1));
-		geo.getIndex()!.usage = WebGLRenderingContext.DYNAMIC_DRAW;
-		geo.drawRange.start = 0;
-		geo.drawRange.count = 0;
-		this.geometry = geo;
-		this.material = [];
+		// Create Babylon Mesh
+		this.mesh = new BABYLON.Mesh("SpineBatchMesh", this._scene);
+		this.mesh.setVerticesData(this.positionsKind, this.vertices, true);
+		this.mesh.setVerticesData(this.colorKind, this.colors, true, 4);
+		this.mesh.setVerticesData(this.uvKind, this.uv, true, 2);
+		this.mesh.setIndices(this.indices, null, true);
 	}
 
-	dispose() {
-		this.geometry.dispose();
-		if (this.material instanceof THREE.Material) {
-			this.material.dispose();
-		} else if (this.material) {
-			for (let i = 0; i < this.material.length; i++) {
-				let material = this.material[i];
-				if (material instanceof THREE.Material) {
-					material.dispose();
-				}
-			}
-		}
-	}
-
-	clear() {
-		let geo = <THREE.BufferGeometry> this.geometry;
-		geo.drawRange.start = 0;
-		geo.drawRange.count = 0;
-		geo.clearGroups();
+	/**
+	 * Clear the batch data.
+	 */
+	public clear() {
+		this.vertexCount = 0;
+		this.indexCount = 0;
 		this.materialGroups = [];
-		if (this.material instanceof THREE.Material) {
-			const meshMaterial = this.material as MaterialWithMap;
-			meshMaterial.map = null;
-			meshMaterial.blending = THREE.NormalBlending;
-		} else if (Array.isArray(this.material)) {
-			for (let i = 0; i < this.material.length; i++) {
-				const meshMaterial = this.material[i] as MaterialWithMap;
-				meshMaterial.map = null;
-				meshMaterial.blending = THREE.NormalBlending;
-			}
-		}
-		return this;
+		this.mesh.subMeshes = [];
 	}
 
-	begin() {
-		this.verticesLength = 0;
-		this.indicesLength = 0;
+	/**
+	 * Call before batching any slot data.
+	 */
+	public begin() {
+		this.clear();
 	}
 
-	canBatch(numVertices: number, numIndices: number) {
-		if (this.indicesLength + numIndices >= this.indices.byteLength / 2) {
+	/**
+	 * Check if there's enough space to batch incoming data.
+	 */
+	public canBatch(numVertices: number, numIndices: number) {
+		if (this.vertexCount + numVertices >= this.vertices.length / 3) {
 			return false;
 		}
-		if (
-			this.verticesLength / this.vertexSize + numVertices >=
-				(this.vertices.byteLength / 4) / this.vertexSize
-		) return false;
+		if (this.indexCount + numIndices >= this.indices.length) return false;
 		return true;
 	}
 
-	batch(
+	/**
+	 * Append vertices & indices from Spine attachments into the batch.
+	 *
+	 * @param vertices - Vertex data in a specific layout
+	 * @param verticesLength - Number of floats in vertices
+	 * @param indices - Triangle indices
+	 * @param indicesLength - Number of indices
+	 * @param z - z offset
+	 */
+	public batch(
 		vertices: ArrayLike<number>,
 		verticesLength: number,
 		indices: ArrayLike<number>,
 		indicesLength: number,
 		z: number = 0,
 	) {
-		let indexStart = this.verticesLength / this.vertexSize;
-		let vertexBuffer = this.vertices;
-		let i = this.verticesLength;
-		let j = 0;
-		if (this.twoColorTint) {
-			for (; j < verticesLength;) {
-				vertexBuffer[i++] = vertices[j++]; // x
-				vertexBuffer[i++] = vertices[j++]; // y
-				vertexBuffer[i++] = z; // z
+		const baseVertex = this.vertexCount;
+		let vpos = this.vertexCount * 3;
+		let cpos = this.vertexCount * 4;
+		let uvpos = this.vertexCount * 2;
 
-				vertexBuffer[i++] = vertices[j++]; // r
-				vertexBuffer[i++] = vertices[j++]; // g
-				vertexBuffer[i++] = vertices[j++]; // b
-				vertexBuffer[i++] = vertices[j++]; // a
+		// Example stride of 9: x, y, z, r, g, b, a, u, v
+		const stride = 9;
 
-				vertexBuffer[i++] = vertices[j++]; // u
-				vertexBuffer[i++] = vertices[j++]; // v
+		// Copy vertex data to the local buffers
+		for (let i = 0; i < verticesLength; i += stride) {
+			// position
+			this.vertices[vpos++] = vertices[i + 0]; // x
+			this.vertices[vpos++] = vertices[i + 1]; // y
+			this.vertices[vpos++] = vertices[i + 2]; // z
 
-				vertexBuffer[i++] = vertices[j++]; // dark r
-				vertexBuffer[i++] = vertices[j++]; // dark g
-				vertexBuffer[i++] = vertices[j++]; // dark b
-				j++;
-			}
-		} else {
-			for (; j < verticesLength;) {
-				vertexBuffer[i++] = vertices[j++]; // x
-				vertexBuffer[i++] = vertices[j++]; // y
-				vertexBuffer[i++] = z; // z
+			// color
+			this.colors[cpos++] = vertices[i + 3]; // r
+			this.colors[cpos++] = vertices[i + 4]; // g
+			this.colors[cpos++] = vertices[i + 5]; // b
+			this.colors[cpos++] = vertices[i + 6]; // a
 
-				vertexBuffer[i++] = vertices[j++]; // r
-				vertexBuffer[i++] = vertices[j++]; // g
-				vertexBuffer[i++] = vertices[j++]; // b
-				vertexBuffer[i++] = vertices[j++]; // a
-
-				vertexBuffer[i++] = vertices[j++]; // u
-				vertexBuffer[i++] = vertices[j++]; // v
-			}
+			// uv
+			this.uv[uvpos++] = vertices[i + 7]; // u
+			this.uv[uvpos++] = vertices[i + 8]; // v
 		}
-		this.verticesLength = i;
 
-		let indicesArray = this.indices;
-		for (i = this.indicesLength, j = 0; j < indicesLength; i++, j++) {
-			indicesArray[i] = indices[j] + indexStart;
+		// Copy indices
+		for (let i = 0; i < indicesLength; i++) {
+			this.indices[this.indexCount + i] = indices[i] + baseVertex;
 		}
-		this.indicesLength += indicesLength;
+
+		this.vertexCount += verticesLength / stride;
+		this.indexCount += indicesLength;
 	}
 
-	end() {
-		this.vertexBuffer.needsUpdate = this.verticesLength > 0;
-		this.vertexBuffer.addUpdateRange(0, this.verticesLength);
-		let geo = <THREE.BufferGeometry> this.geometry;
-		this.closeMaterialGroups();
-		let index = geo.getIndex();
-		if (!index) throw new Error("BufferAttribute must not be null.");
-		index.needsUpdate = this.indicesLength > 0;
-		index.addUpdateRange(0, this.indicesLength);
-		geo.drawRange.start = 0;
-		geo.drawRange.count = this.indicesLength;
-		geo.computeVertexNormals();
-	}
-
-	addMaterialGroup(indicesLength: number, materialGroup: number) {
-		const currentGroup = this.materialGroups[this.materialGroups.length - 1];
-
-		if (currentGroup === undefined || currentGroup[2] !== materialGroup) {
-			this.materialGroups.push([
-				this.indicesLength,
-				indicesLength,
-				materialGroup,
-			]);
-		} else {
-			currentGroup[1] += indicesLength;
-		}
-	}
-
-	private closeMaterialGroups() {
-		const geometry = this.geometry as THREE.BufferGeometry;
-		for (let i = 0; i < this.materialGroups.length; i++) {
-			const [startIndex, count, materialGroup] = this.materialGroups[i];
-
-			geometry.addGroup(startIndex, count, materialGroup);
-		}
-	}
-
-	findMaterialGroup(slotTexture: THREE.Texture, slotBlendMode: BlendMode) {
-		const blendingObject = ThreeJsTexture.toThreeJsBlending(slotBlendMode);
-		let group = -1;
-
-		if (Array.isArray(this.material)) {
-			for (let i = 0; i < this.material.length; i++) {
-				const meshMaterial = this.material[i] as MaterialWithMap;
-
-				if (!meshMaterial.map) {
-					updateMeshMaterial(meshMaterial, slotTexture, blendingObject);
-					return i;
-				}
-
-				if (
-					meshMaterial.map === slotTexture &&
-					blendingObject.blending === meshMaterial.blending &&
-					(blendingObject.blendSrc === undefined ||
-						blendingObject.blendSrc === meshMaterial.blendSrc) &&
-					(blendingObject.blendDst === undefined ||
-						blendingObject.blendDst === meshMaterial.blendDst) &&
-					(blendingObject.blendSrcAlpha === undefined ||
-						blendingObject.blendSrcAlpha === meshMaterial.blendSrcAlpha) &&
-					(blendingObject.blendDstAlpha === undefined ||
-						blendingObject.blendDstAlpha === meshMaterial.blendDstAlpha)
-				) {
-					return i;
-				}
-			}
-
-			const meshMaterial = this.newMaterial();
-			updateMeshMaterial(
-				meshMaterial as MaterialWithMap,
-				slotTexture,
-				blendingObject,
-			);
-			this.material.push(meshMaterial);
-			group = this.material.length - 1;
-		} else {
-			throw new Error(
-				"MeshBatcher.material needs to be an array for geometry groups to work",
-			);
-		}
-
-		return group;
-	}
-
-	private newMaterial(): MaterialWithMap {
-		const meshMaterial = this.materialFactory(
-			SkeletonMesh.DEFAULT_MATERIAL_PARAMETERS,
-		);
-
-		if (!("map" in meshMaterial)) {
-			throw new Error(
-				"The material factory must return a material having the map property for the texture.",
-			);
-		}
-
-		if (meshMaterial instanceof SkeletonMeshMaterial) {
-			return meshMaterial;
-		}
-
-		if (this.twoColorTint) {
-			meshMaterial.defines = {
-				...meshMaterial.defines,
-				USE_SPINE_DARK_TINT: 1,
-			};
-		}
-
-		meshMaterial.onBeforeCompile = spineOnBeforeCompile;
-
-		return meshMaterial;
-	}
-}
-
-const spineOnBeforeCompile = (
-	shader: THREE.WebGLProgramParametersWithUniforms,
-) => {
-	let code;
-
-	// VERTEX SHADER MODIFICATIONS
-
-	// Add dark color attribute
-	shader.vertexShader = `
-		#if defined( USE_SPINE_DARK_TINT )
-			attribute vec3 darkcolor;
-		#endif
-	` + shader.vertexShader;
-
-	// Add dark color attribute
-	code = `
-		#if defined( USE_SPINE_DARK_TINT )
-			varying vec3 v_dark;
-		#endif
-	`;
-	shader.vertexShader = insertAfterElementInShader(
-		shader.vertexShader,
-		"#include <color_pars_vertex>",
-		code,
-	);
-
-	// Define v_dark varying
-	code = `
-		#if defined( USE_SPINE_DARK_TINT )
-			v_dark = vec3( 1.0 );
-			v_dark *= darkcolor;
-		#endif
-	`;
-	shader.vertexShader = insertAfterElementInShader(
-		shader.vertexShader,
-		"#include <color_vertex>",
-		code,
-	);
-
-	// FRAGMENT SHADER MODIFICATIONS
-
-	// Define v_dark varying
-	code = `
-		#ifdef USE_SPINE_DARK_TINT
-			varying vec3 v_dark;
-		#endif
-	`;
-	shader.fragmentShader = insertAfterElementInShader(
-		shader.fragmentShader,
-		"#include <color_pars_fragment>",
-		code,
-	);
-
-	// Replacing color_fragment with the addition of dark tint formula if twoColorTint is true
-	shader.fragmentShader = shader.fragmentShader.replace(
-		"#include <color_fragment>",
-		`
-			#ifdef USE_SPINE_DARK_TINT
-				#ifdef USE_COLOR_ALPHA
-						diffuseColor.a *= vColor.a;
-						diffuseColor.rgb *= (1.0 - diffuseColor.rgb) * v_dark.rgb + diffuseColor.rgb * vColor.rgb;
-				#endif
-			#else
-				#ifdef USE_COLOR_ALPHA
-						diffuseColor *= vColor;
-				#endif
-			#endif
-		`,
-	);
-
-	// We had to remove this because we need premultiplied blending modes, but our textures are already premultiplied
-	// We could actually create a custom blending mode for Normal and Additive too
-	shader.fragmentShader = shader.fragmentShader.replace(
-		"#include <premultiplied_alpha_fragment>",
-		"",
-	);
-
-	// We had to remove this (and don't assign a color space to the texture) otherwise we would see artifacts on texture edges
-	shader.fragmentShader = shader.fragmentShader.replace(
-		"#include <colorspace_fragment>",
-		"",
-	);
-};
-
-function insertAfterElementInShader(
-	shader: string,
-	elementToFind: string,
-	codeToInsert: string,
-) {
-	const index = shader.indexOf(elementToFind);
-	const beforeToken = shader.slice(0, index + elementToFind.length);
-	const afterToken = shader.slice(index + elementToFind.length);
-	return beforeToken + codeToInsert + afterToken;
-}
-
-function updateMeshMaterial(
-	meshMaterial: MaterialWithMap,
-	slotTexture: THREE.Texture,
-	blending: ThreeBlendOptions,
-) {
-	meshMaterial.map = slotTexture;
-	Object.assign(meshMaterial, blending);
-	meshMaterial.needsUpdate = true;
-}
-
-export class SkeletonMeshMaterial extends THREE.ShaderMaterial {
-	public get map(): THREE.Texture | null {
-		return this.uniforms.map.value;
-	}
-
-	public set map(value: THREE.Texture | null) {
-		this.uniforms.map.value = value;
-	}
-
-	constructor(parameters: THREE.ShaderMaterialParameters) {
-		let vertexShader = `
-			varying vec2 vUv;
-			varying vec4 vColor;
-			void main() {
-				vUv = uv;
-				vColor = color;
-				gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0);
-			}
-		`;
-		let fragmentShader = `
-			uniform sampler2D map;
-			#ifdef USE_SPINE_ALPHATEST
-			uniform float alphaTest;
-			#endif
-			varying vec2 vUv;
-			varying vec4 vColor;
-			void main(void) {
-				gl_FragColor = texture2D(map, vUv)*vColor;
-				#ifdef USE_SPINE_ALPHATEST
-					if (gl_FragColor.a < alphaTest) discard;
-				#endif
-			}
-		`;
-
-		let uniforms = { map: { value: null } };
-		if (parameters.uniforms) {
-			uniforms = { ...parameters.uniforms, ...uniforms };
-		}
-
-		if (parameters.alphaTest && parameters.alphaTest > 0) {
-			parameters.defines = { USE_SPINE_ALPHATEST: 1 };
-		}
-
-		super({
-			vertexShader,
-			fragmentShader,
-			...parameters,
-			uniforms,
+	/**
+	 * Create a subMesh for the latest added triangles with a specified material index.
+	 */
+	public addMaterialGroup(indicesLength: number, materialIndex: number) {
+		const currentIndexStart = this.indexCount;
+		this.materialGroups.push({
+			indexStart: currentIndexStart,
+			indexCount: indicesLength,
+			materialIndex,
 		});
+	}
+
+	/**
+	 * Upload updated buffers to GPU and create subMeshes.
+	 */
+	public end() {
+		this.mesh.updateVerticesData(this.positionsKind, this.vertices, false);
+		this.mesh.updateVerticesData(this.colorKind, this.colors, false);
+		this.mesh.updateVerticesData(this.uvKind, this.uv, false);
+		this.mesh.updateIndices(this.indices);
+
+		this.mesh.subMeshes = [];
+		for (const group of this.materialGroups) {
+			const subMesh = new BABYLON.SubMesh(
+				group.materialIndex,
+				0,
+				this.vertexCount,
+				group.indexStart,
+				group.indexCount,
+				this.mesh,
+			);
+			this.mesh.subMeshes.push(subMesh);
+		}
+	}
+
+	/**
+	 * Dispose mesh and free resources.
+	 */
+	public dispose() {
+		this.mesh.dispose();
+	}
+
+	/**
+	 * Find or create a material index matching the specified texture and blend mode.
+	 * @param slotTexture - The Babylon texture from the Spine slot
+	 * @param slotBlendMode - The Spine blend mode
+	 */
+	public findMaterialIndex(
+		slotTexture: BABYLON.Texture,
+		slotBlendMode: BlendMode,
+	): number {
+		for (let i = 0; i < this.materials.length; i++) {
+			if (
+				this.materials[i].spineTexture === slotTexture &&
+				this._isSameBlendMode(this.materials[i], slotBlendMode)
+			) {
+				return i;
+			}
+		}
+
+		// Create new material
+		const newMaterial = this._createSpineMaterial(slotTexture, slotBlendMode);
+		const newIndex = this.materials.length;
+		this.materials.push(newMaterial);
+
+		// Reassign multiMaterial
+		this.mesh.material = null;
+		const multiMat = new BABYLON.MultiMaterial("SpineMultiMat", this._scene);
+		multiMat.subMaterials = this.materials;
+		this.mesh.material = multiMat;
+
+		return newIndex;
+	}
+
+	/**
+	 * Compare blend mode on an existing material.
+	 */
+	private _isSameBlendMode(mat: MaterialWithTexture, blendMode: BlendMode) {
+		// Checking alphaMode for approximate match.
+		// More advanced logic might be needed for Screen or Multiply in custom shaders.
+		if (
+			blendMode === BlendMode.Normal &&
+			mat.alphaMode === BABYLON.Engine.ALPHA_COMBINE
+		) return true;
+		if (
+			blendMode === BlendMode.Additive &&
+			mat.alphaMode === BABYLON.Engine.ALPHA_ADD
+		) return true;
+		if (
+			blendMode === BlendMode.Multiply &&
+			mat.alphaMode === BABYLON.Engine.ALPHA_MULTIPLY
+		) return true;
+		if (
+			blendMode === BlendMode.Screen &&
+			mat.alphaMode === BABYLON.Engine.ALPHA_COMBINE
+		) return true;
+		return false;
+	}
+
+	/**
+	 * Create a basic Babylon StandardMaterial with the texture and approximate blend mode.
+	 */
+	private _createSpineMaterial(
+		texture: BABYLON.Texture,
+		blendMode: BlendMode,
+	): MaterialWithTexture {
+		const mat = new BABYLON.StandardMaterial(
+			"SpineMaterial",
+			this._scene,
+		) as MaterialWithTexture;
+		mat.spineTexture = texture;
+		//mat.diffuseTexture = texture;
+		//mat.emissiveTexture = texture; // sometimes used to avoid lighting in basic usage
+		//mat.disableLighting = true;
+		mat.backFaceCulling = false;
+		//mat.useAlphaFromDiffuseTexture = true;
+
+		switch (blendMode) {
+			case BlendMode.Normal:
+				mat.alphaMode = BABYLON.Engine.ALPHA_COMBINE;
+				break;
+			case BlendMode.Additive:
+				mat.alphaMode = BABYLON.Engine.ALPHA_ADD;
+				break;
+			case BlendMode.Multiply:
+				mat.alphaMode = BABYLON.Engine.ALPHA_MULTIPLY;
+				break;
+			case BlendMode.Screen:
+			default:
+				// Babylon does not have a built-in screen blend mode, so a custom shader could be used
+				mat.alphaMode = BABYLON.Engine.ALPHA_COMBINE;
+				break;
+		}
+
+		return mat;
 	}
 }

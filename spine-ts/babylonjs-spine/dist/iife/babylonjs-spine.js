@@ -1,8 +1,10 @@
 "use strict";
 var spine = (() => {
+  var __create = Object.create;
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
+  var __getProtoOf = Object.getPrototypeOf;
   var __hasOwnProp = Object.prototype.hasOwnProperty;
   var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
   var __require = /* @__PURE__ */ ((x) => typeof require !== "undefined" ? require : typeof Proxy !== "undefined" ? new Proxy(x, {
@@ -24,6 +26,14 @@ var spine = (() => {
     }
     return to;
   };
+  var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
+    // If the importer is in node compatibility mode or this is not an ESM
+    // file that has been converted to a CommonJS file using a Babel-
+    // compatible transform (i.e. "__esModule" has not been set), then set
+    // "default" to the CommonJS "module.exports" for node compatibility.
+    isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
+    mod
+  ));
   var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
   var __publicField = (obj, key, value) => {
     __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
@@ -43,6 +53,7 @@ var spine = (() => {
     AtlasAttachmentLoader: () => AtlasAttachmentLoader,
     Attachment: () => Attachment,
     AttachmentTimeline: () => AttachmentTimeline,
+    BabylonJsTexture: () => BabylonJsTexture,
     BinaryInput: () => BinaryInput,
     BlendMode: () => BlendMode,
     Bone: () => Bone,
@@ -78,6 +89,7 @@ var spine = (() => {
     Interpolation: () => Interpolation,
     MathUtils: () => MathUtils,
     MeshAttachment: () => MeshAttachment,
+    MeshBatcher: () => MeshBatcher,
     MixBlend: () => MixBlend,
     MixDirection: () => MixDirection,
     PathAttachment: () => PathAttachment,
@@ -123,6 +135,7 @@ var spine = (() => {
     SkeletonClipping: () => SkeletonClipping,
     SkeletonData: () => SkeletonData,
     SkeletonJson: () => SkeletonJson,
+    SkeletonMesh: () => SkeletonMesh,
     Skin: () => Skin,
     SkinEntry: () => SkinEntry,
     Slot: () => Slot,
@@ -4729,21 +4742,21 @@ var spine = (() => {
       return this._image;
     }
   };
-  var TextureFilter = /* @__PURE__ */ ((TextureFilter3) => {
-    TextureFilter3[TextureFilter3["Nearest"] = 9728] = "Nearest";
-    TextureFilter3[TextureFilter3["Linear"] = 9729] = "Linear";
-    TextureFilter3[TextureFilter3["MipMap"] = 9987] = "MipMap";
-    TextureFilter3[TextureFilter3["MipMapNearestNearest"] = 9984] = "MipMapNearestNearest";
-    TextureFilter3[TextureFilter3["MipMapLinearNearest"] = 9985] = "MipMapLinearNearest";
-    TextureFilter3[TextureFilter3["MipMapNearestLinear"] = 9986] = "MipMapNearestLinear";
-    TextureFilter3[TextureFilter3["MipMapLinearLinear"] = 9987] = "MipMapLinearLinear";
-    return TextureFilter3;
+  var TextureFilter = /* @__PURE__ */ ((TextureFilter2) => {
+    TextureFilter2[TextureFilter2["Nearest"] = 9728] = "Nearest";
+    TextureFilter2[TextureFilter2["Linear"] = 9729] = "Linear";
+    TextureFilter2[TextureFilter2["MipMap"] = 9987] = "MipMap";
+    TextureFilter2[TextureFilter2["MipMapNearestNearest"] = 9984] = "MipMapNearestNearest";
+    TextureFilter2[TextureFilter2["MipMapLinearNearest"] = 9985] = "MipMapLinearNearest";
+    TextureFilter2[TextureFilter2["MipMapNearestLinear"] = 9986] = "MipMapNearestLinear";
+    TextureFilter2[TextureFilter2["MipMapLinearLinear"] = 9987] = "MipMapLinearLinear";
+    return TextureFilter2;
   })(TextureFilter || {});
-  var TextureWrap = /* @__PURE__ */ ((TextureWrap3) => {
-    TextureWrap3[TextureWrap3["MirroredRepeat"] = 33648] = "MirroredRepeat";
-    TextureWrap3[TextureWrap3["ClampToEdge"] = 33071] = "ClampToEdge";
-    TextureWrap3[TextureWrap3["Repeat"] = 10497] = "Repeat";
-    return TextureWrap3;
+  var TextureWrap = /* @__PURE__ */ ((TextureWrap2) => {
+    TextureWrap2[TextureWrap2["MirroredRepeat"] = 33648] = "MirroredRepeat";
+    TextureWrap2[TextureWrap2["ClampToEdge"] = 33071] = "ClampToEdge";
+    TextureWrap2[TextureWrap2["Repeat"] = 10497] = "Repeat";
+    return TextureWrap2;
   })(TextureWrap || {});
   var TextureRegion = class {
     texture;
@@ -8620,12 +8633,12 @@ var spine = (() => {
       this.boneData = boneData;
     }
   };
-  var BlendMode = /* @__PURE__ */ ((BlendMode3) => {
-    BlendMode3[BlendMode3["Normal"] = 0] = "Normal";
-    BlendMode3[BlendMode3["Additive"] = 1] = "Additive";
-    BlendMode3[BlendMode3["Multiply"] = 2] = "Multiply";
-    BlendMode3[BlendMode3["Screen"] = 3] = "Screen";
-    return BlendMode3;
+  var BlendMode = /* @__PURE__ */ ((BlendMode2) => {
+    BlendMode2[BlendMode2["Normal"] = 0] = "Normal";
+    BlendMode2[BlendMode2["Additive"] = 1] = "Additive";
+    BlendMode2[BlendMode2["Multiply"] = 2] = "Multiply";
+    BlendMode2[BlendMode2["Screen"] = 3] = "Screen";
+    return BlendMode2;
   })(BlendMode || {});
 
   // spine-core/src/TransformConstraintData.ts
@@ -11817,35 +11830,488 @@ var spine = (() => {
   })();
 
   // babylonjs-spine/src/BabylonJsTexture.ts
-  var import_babylonjs = __require("babylonjs");
+  var BABYLON = __toESM(__require("babylonjs"), 1);
   var BabylonJsTexture = class extends Texture {
+    /** The actual Babylon.js DynamicTexture object */
     texture;
+    /**
+     * @param image - HTMLImageElement or ImageBitmap
+     * @param scene - The current Babylon.js Scene
+     * @param premultipliedAlpha - PMA setting from Spine
+     */
     constructor(image, scene) {
       super(image);
-      if (image instanceof ImageBitmap) {
-        this.texture = new import_babylonjs.DynamicTexture("dynamicTexture", image, scene);
-      } else {
-        this.texture = new import_babylonjs.Texture(image.src, scene);
+      const width = image.width || image.width;
+      const height = image.height || image.height;
+      this.texture = new BABYLON.DynamicTexture(
+        "spineDynamicTexture",
+        { width, height },
+        scene,
+        false
+      );
+      const context = this.texture.getContext();
+      context.clearRect(0, 0, width, height);
+      context.drawImage(image, 0, 0, width, height);
+      this.texture.update(false);
+      this.texture.hasAlpha = true;
+    }
+    /**
+     * Called by Spine to set min/mag filter
+     */
+    setFilters(minFilter, magFilter) {
+      const babylonMinFilter = BabylonJsTexture.toBabylonSamplingMode(minFilter);
+      const babylonMagFilter = BabylonJsTexture.toBabylonSamplingMode(magFilter);
+      if (this.texture._texture) {
+        this.texture._texture.samplingMode = babylonMinFilter;
       }
     }
-    setFilters(minFilter, magFilter) {
-    }
+    /**
+     * Called by Spine to set wrap mode
+     */
     setWraps(uWrap, vWrap) {
+      this.texture.wrapU = BabylonJsTexture.toBabylonTextureWrap(uWrap);
+      this.texture.wrapV = BabylonJsTexture.toBabylonTextureWrap(vWrap);
     }
+    /**
+     * Dispose GPU resources
+     */
     dispose() {
       this.texture.dispose();
+    }
+    /**
+     * Convert Spine's TextureFilter to Babylon's sampling mode
+     */
+    static toBabylonSamplingMode(filter) {
+      switch (filter) {
+        case 9729 /* Linear */:
+          return BABYLON.Texture.BILINEAR_SAMPLINGMODE;
+        case 9987 /* MipMap */:
+        case 9985 /* MipMapLinearNearest */:
+        case 9986 /* MipMapNearestLinear */:
+        case 9984 /* MipMapNearestNearest */:
+          return BABYLON.Texture.TRILINEAR_SAMPLINGMODE;
+        case 9728 /* Nearest */:
+          return BABYLON.Texture.NEAREST_SAMPLINGMODE;
+        default:
+          throw new Error("Unknown texture filter: " + filter);
+      }
+    }
+    /**
+     * Convert Spine's TextureWrap to Babylon's wrap mode
+     */
+    static toBabylonTextureWrap(wrap) {
+      switch (wrap) {
+        case 33071 /* ClampToEdge */:
+          return BABYLON.Texture.CLAMP_ADDRESSMODE;
+        case 33648 /* MirroredRepeat */:
+          return BABYLON.Texture.MIRROR_ADDRESSMODE;
+        case 10497 /* Repeat */:
+          return BABYLON.Texture.WRAP_ADDRESSMODE;
+        default:
+          throw new Error("Unknown texture wrap: " + wrap);
+      }
     }
   };
 
   // babylonjs-spine/src/AssetManager.ts
   var AssetManager = class extends AssetManagerBase {
-    constructor(scene, pathPrefix = "") {
+    constructor(scene, pathPrefix = "", downloader = new Downloader()) {
       super(
         (image) => {
           return new BabylonJsTexture(image, scene);
         },
-        pathPrefix
+        pathPrefix,
+        downloader
       );
+    }
+  };
+
+  // babylonjs-spine/src/MeshBatcher.ts
+  var BABYLON2 = __toESM(__require("babylonjs"), 1);
+  var _MeshBatcher = class {
+    // Arbitrary example limit
+    _scene;
+    mesh;
+    // CPU-side buffers
+    vertices;
+    colors;
+    uv;
+    indices;
+    vertexCount = 0;
+    indexCount = 0;
+    // SubMesh grouping
+    materialGroups = [];
+    // Material list
+    materials = [];
+    // Kinds for vertex data
+    positionsKind = BABYLON2.VertexBuffer.PositionKind;
+    colorKind = BABYLON2.VertexBuffer.ColorKind;
+    uvKind = BABYLON2.VertexBuffer.UVKind;
+    /**
+     * @param scene - The current Babylon.js Scene
+     * @param maxVertices - Maximum vertices in the batch
+     */
+    constructor(scene, maxVertices = _MeshBatcher.MAX_VERTICES) {
+      this._scene = scene;
+      this.vertices = new Float32Array(maxVertices * 3);
+      this.colors = new Float32Array(maxVertices * 4);
+      this.uv = new Float32Array(maxVertices * 2);
+      this.indices = new Uint16Array(maxVertices * 3);
+      this.mesh = new BABYLON2.Mesh("SpineBatchMesh", this._scene);
+      this.mesh.setVerticesData(this.positionsKind, this.vertices, true);
+      this.mesh.setVerticesData(this.colorKind, this.colors, true, 4);
+      this.mesh.setVerticesData(this.uvKind, this.uv, true, 2);
+      this.mesh.setIndices(this.indices, null, true);
+    }
+    /**
+     * Clear the batch data.
+     */
+    clear() {
+      this.vertexCount = 0;
+      this.indexCount = 0;
+      this.materialGroups = [];
+      this.mesh.subMeshes = [];
+    }
+    /**
+     * Call before batching any slot data.
+     */
+    begin() {
+      this.clear();
+    }
+    /**
+     * Check if there's enough space to batch incoming data.
+     */
+    canBatch(numVertices, numIndices) {
+      if (this.vertexCount + numVertices >= this.vertices.length / 3) {
+        return false;
+      }
+      if (this.indexCount + numIndices >= this.indices.length)
+        return false;
+      return true;
+    }
+    /**
+     * Append vertices & indices from Spine attachments into the batch.
+     *
+     * @param vertices - Vertex data in a specific layout
+     * @param verticesLength - Number of floats in vertices
+     * @param indices - Triangle indices
+     * @param indicesLength - Number of indices
+     * @param z - z offset
+     */
+    batch(vertices, verticesLength, indices, indicesLength, z = 0) {
+      const baseVertex = this.vertexCount;
+      let vpos = this.vertexCount * 3;
+      let cpos = this.vertexCount * 4;
+      let uvpos = this.vertexCount * 2;
+      const stride = 9;
+      for (let i = 0; i < verticesLength; i += stride) {
+        this.vertices[vpos++] = vertices[i + 0];
+        this.vertices[vpos++] = vertices[i + 1];
+        this.vertices[vpos++] = vertices[i + 2];
+        this.colors[cpos++] = vertices[i + 3];
+        this.colors[cpos++] = vertices[i + 4];
+        this.colors[cpos++] = vertices[i + 5];
+        this.colors[cpos++] = vertices[i + 6];
+        this.uv[uvpos++] = vertices[i + 7];
+        this.uv[uvpos++] = vertices[i + 8];
+      }
+      for (let i = 0; i < indicesLength; i++) {
+        this.indices[this.indexCount + i] = indices[i] + baseVertex;
+      }
+      this.vertexCount += verticesLength / stride;
+      this.indexCount += indicesLength;
+    }
+    /**
+     * Create a subMesh for the latest added triangles with a specified material index.
+     */
+    addMaterialGroup(indicesLength, materialIndex) {
+      const currentIndexStart = this.indexCount;
+      this.materialGroups.push({
+        indexStart: currentIndexStart,
+        indexCount: indicesLength,
+        materialIndex
+      });
+    }
+    /**
+     * Upload updated buffers to GPU and create subMeshes.
+     */
+    end() {
+      this.mesh.updateVerticesData(this.positionsKind, this.vertices, false);
+      this.mesh.updateVerticesData(this.colorKind, this.colors, false);
+      this.mesh.updateVerticesData(this.uvKind, this.uv, false);
+      this.mesh.updateIndices(this.indices);
+      this.mesh.subMeshes = [];
+      for (const group of this.materialGroups) {
+        const subMesh = new BABYLON2.SubMesh(
+          group.materialIndex,
+          0,
+          this.vertexCount,
+          group.indexStart,
+          group.indexCount,
+          this.mesh
+        );
+        this.mesh.subMeshes.push(subMesh);
+      }
+    }
+    /**
+     * Dispose mesh and free resources.
+     */
+    dispose() {
+      this.mesh.dispose();
+    }
+    /**
+     * Find or create a material index matching the specified texture and blend mode.
+     * @param slotTexture - The Babylon texture from the Spine slot
+     * @param slotBlendMode - The Spine blend mode
+     */
+    findMaterialIndex(slotTexture, slotBlendMode) {
+      for (let i = 0; i < this.materials.length; i++) {
+        if (this.materials[i].spineTexture === slotTexture && this._isSameBlendMode(this.materials[i], slotBlendMode)) {
+          return i;
+        }
+      }
+      const newMaterial = this._createSpineMaterial(slotTexture, slotBlendMode);
+      const newIndex = this.materials.length;
+      this.materials.push(newMaterial);
+      this.mesh.material = null;
+      const multiMat = new BABYLON2.MultiMaterial("SpineMultiMat", this._scene);
+      multiMat.subMaterials = this.materials;
+      this.mesh.material = multiMat;
+      return newIndex;
+    }
+    /**
+     * Compare blend mode on an existing material.
+     */
+    _isSameBlendMode(mat, blendMode) {
+      if (blendMode === 0 /* Normal */ && mat.alphaMode === BABYLON2.Engine.ALPHA_COMBINE)
+        return true;
+      if (blendMode === 1 /* Additive */ && mat.alphaMode === BABYLON2.Engine.ALPHA_ADD)
+        return true;
+      if (blendMode === 2 /* Multiply */ && mat.alphaMode === BABYLON2.Engine.ALPHA_MULTIPLY)
+        return true;
+      if (blendMode === 3 /* Screen */ && mat.alphaMode === BABYLON2.Engine.ALPHA_COMBINE)
+        return true;
+      return false;
+    }
+    /**
+     * Create a basic Babylon StandardMaterial with the texture and approximate blend mode.
+     */
+    _createSpineMaterial(texture, blendMode) {
+      const mat = new BABYLON2.StandardMaterial(
+        "SpineMaterial",
+        this._scene
+      );
+      mat.spineTexture = texture;
+      mat.backFaceCulling = false;
+      switch (blendMode) {
+        case 0 /* Normal */:
+          mat.alphaMode = BABYLON2.Engine.ALPHA_COMBINE;
+          break;
+        case 1 /* Additive */:
+          mat.alphaMode = BABYLON2.Engine.ALPHA_ADD;
+          break;
+        case 2 /* Multiply */:
+          mat.alphaMode = BABYLON2.Engine.ALPHA_MULTIPLY;
+          break;
+        case 3 /* Screen */:
+        default:
+          mat.alphaMode = BABYLON2.Engine.ALPHA_COMBINE;
+          break;
+      }
+      return mat;
+    }
+  };
+  var MeshBatcher = _MeshBatcher;
+  __publicField(MeshBatcher, "MAX_VERTICES", 10920);
+
+  // babylonjs-spine/src/SkeletonMesh.ts
+  var BABYLON3 = __toESM(__require("babylonjs"), 1);
+  var SkeletonMesh = class extends BABYLON3.TransformNode {
+    skeleton;
+    animationState;
+    _batcherArray = [];
+    _nextBatchIndex = 0;
+    _clipper = new SkeletonClipping();
+    _vertexSize = 9;
+    // Default: x, y, z, r, g, b, a, u, v
+    _tempColor = new Color();
+    _tempDarkColor = new Color();
+    /** z-offset between slots (for layering) */
+    zOffset = 0.1;
+    /**
+     * @param name - TransformNode name
+     * @param scene - Babylon.js Scene
+     * @param config - SkeletonMeshConfiguration
+     */
+    constructor(name, scene, config) {
+      super(name, scene);
+      this._scene = scene;
+      this.skeleton = new Skeleton(config.skeletonData);
+      const animData = new AnimationStateData(config.skeletonData);
+      this.animationState = new AnimationState(animData);
+      if (config.twoColorTint) {
+        this._vertexSize = 9 + 4;
+      }
+    }
+    /**
+     * Update the Spine skeleton and animation state.
+     * @param deltaTime - Time in seconds since last update
+     */
+    update(deltaTime) {
+      this.animationState.update(deltaTime);
+      this.animationState.apply(this.skeleton);
+      this.skeleton.update(deltaTime);
+      this.skeleton.updateWorldTransform(2 /* update */);
+      this.updateGeometry();
+    }
+    /**
+     * Dispose all batchers and this transform node.
+     */
+    dispose() {
+      super.dispose();
+      for (const b of this._batcherArray) {
+        b.dispose();
+      }
+    }
+    /**
+     * Clear all existing batchers.
+     */
+    _clearBatches() {
+      for (let i = 0; i < this._batcherArray.length; i++) {
+        const batcher = this._batcherArray[i];
+        batcher.clear();
+        batcher.mesh.setEnabled(false);
+      }
+      this._nextBatchIndex = 0;
+    }
+    /**
+     * Get the next available batcher or create a new one.
+     */
+    _nextBatcher() {
+      if (this._batcherArray.length <= this._nextBatchIndex) {
+        const newBatch = new MeshBatcher(this._scene);
+        newBatch.mesh.parent = this;
+        this._batcherArray.push(newBatch);
+      }
+      const batch = this._batcherArray[this._nextBatchIndex++];
+      batch.mesh.setEnabled(true);
+      return batch;
+    }
+    /**
+     * Loop through the skeleton's draw order and feed vertex/index data into a MeshBatcher.
+     */
+    updateGeometry() {
+      this._clearBatches();
+      const drawOrder = this.skeleton.drawOrder;
+      const clipper = this._clipper;
+      let batch = this._nextBatcher();
+      batch.begin();
+      let z = 0;
+      const zOffset = this.zOffset;
+      for (let i = 0, n = drawOrder.length; i < n; i++) {
+        const slot = drawOrder[i];
+        if (!slot.bone.active) {
+          clipper.clipEndWithSlot(slot);
+          continue;
+        }
+        const attachment = slot.getAttachment();
+        if (attachment instanceof ClippingAttachment) {
+          clipper.clipStart(slot, attachment);
+          continue;
+        }
+        let texture = null;
+        let regionTriangles = null;
+        let finalVertices = null;
+        let finalVerticesLength = 0;
+        let finalIndices = [];
+        let finalIndicesLength = 0;
+        if (attachment instanceof RegionAttachment) {
+          texture = attachment.region?.texture;
+          const vertexCount = 4;
+          finalVerticesLength = vertexCount * this._vertexSize;
+          const verts = new Float32Array(finalVerticesLength);
+          attachment.computeWorldVertices(slot, verts, 0, this._vertexSize);
+          regionTriangles = [0, 1, 2, 2, 3, 0];
+          finalIndices = regionTriangles;
+          finalIndicesLength = regionTriangles.length;
+          finalVertices = verts;
+        } else if (attachment instanceof MeshAttachment) {
+          texture = attachment.region?.texture;
+          const mesh = attachment;
+          const vertexCount = mesh.worldVerticesLength >> 1;
+          finalVerticesLength = vertexCount * this._vertexSize;
+          const verts = new Float32Array(finalVerticesLength);
+          mesh.computeWorldVertices(
+            slot,
+            0,
+            mesh.worldVerticesLength,
+            verts,
+            0,
+            this._vertexSize
+          );
+          regionTriangles = mesh.triangles;
+          finalIndices = regionTriangles;
+          finalIndicesLength = regionTriangles.length;
+          finalVertices = verts;
+        } else {
+          clipper.clipEndWithSlot(slot);
+          continue;
+        }
+        if (!texture || !finalVertices) {
+          clipper.clipEndWithSlot(slot);
+          continue;
+        }
+        const skeletonColor = this.skeleton.color;
+        const slotColor = slot.color;
+        const attachmentColor = attachment.color || Color.WHITE;
+        const alpha = skeletonColor.a * slotColor.a * attachmentColor.a;
+        this._tempColor.set(
+          skeletonColor.r * slotColor.r * attachmentColor.r,
+          skeletonColor.g * slotColor.g * attachmentColor.g,
+          skeletonColor.b * slotColor.b * attachmentColor.b,
+          alpha
+        );
+        if (!slot.darkColor) {
+          this._tempDarkColor.set(0, 0, 0, 0);
+        } else {
+          this._tempDarkColor.set(
+            slot.darkColor.r,
+            slot.darkColor.g,
+            slot.darkColor.b,
+            slot.darkColor.a
+          );
+        }
+        for (let v = 2; v < finalVerticesLength; v += this._vertexSize) {
+          finalVertices[v + 0] = this._tempColor.r;
+          finalVertices[v + 1] = this._tempColor.g;
+          finalVertices[v + 2] = this._tempColor.b;
+          finalVertices[v + 3] = this._tempColor.a;
+        }
+        if (!batch.canBatch(
+          finalVerticesLength / this._vertexSize,
+          finalIndicesLength
+        )) {
+          batch.end();
+          batch = this._nextBatcher();
+          batch.begin();
+        }
+        const matIndex = batch.findMaterialIndex(
+          texture.texture,
+          slot.data.blendMode
+        );
+        batch.addMaterialGroup(finalIndicesLength, matIndex);
+        batch.batch(
+          finalVertices,
+          finalVerticesLength,
+          finalIndices,
+          finalIndicesLength,
+          z
+        );
+        z += zOffset;
+        clipper.clipEndWithSlot(slot);
+      }
+      clipper.clipEnd();
+      batch.end();
     }
   };
   return __toCommonJS(src_exports);
