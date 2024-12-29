@@ -261,7 +261,7 @@ export class MeshBatcher {
 			this._scene,
 		) as MaterialWithTexture;
 		mat.spineTexture = texture;
-		mat.diffuseTexture = texture;
+		//mat.diffuseTexture = texture;
 		mat.emissiveTexture = texture; // sometimes used to avoid lighting in basic usage
 		mat.disableLighting = true;
 		mat.backFaceCulling = false;

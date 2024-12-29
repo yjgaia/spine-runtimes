@@ -1,156 +1,189 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <title>BabylonJS Spine 1000 Animations</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Babylon.js library -->
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <!-- Babylon.js GUI library - for displaying FPS -->
+    <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
+    <!-- Spine integration plugin for Babylon.js (e.g. babylonjs-spine.js) -->
+    <script src="../dist/iife/babylonjs-spine.js"></script>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+      }
+      body,
+      html {
+        width: 100%;
+        height: 100%;
+      }
+      #renderCanvas {
+        width: 100%;
+        height: 100%;
+        touch-action: none;
+      }
+    </style>
   </head>
-  <script src="https://cdn.babylonjs.com/babylon.js"></script>
-  <script src="../dist/iife/babylonjs-spine.js"></script>
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-    }
-
-    body,
-    html {
-      height: 100%;
-    }
-
-    canvas {
-      position: absolute;
-      width: 100%;
-      height: 100%;
-    }
-  </style>
   <body>
     <canvas id="renderCanvas"></canvas>
     <script>
-      let engine, scene;
-      let assetManager;
-      let skeletonMesh;
+      let engine, scene, assetManager;
+      let skeletonData; // We'll reuse the loaded SkeletonData
+      const skeletonMeshes = []; // Array to store 1,000 Spine Mesh instances
 
-      // Paths to your Spine files (adjust these for your own folder/filenames)
-      let baseUrl = "assets/";
-      let skeletonFile = "raptor-pro.json";
-      let atlasFile = "raptor.atlas";
-      let animation = "walk"; // The name of the animation to play
+      // Spine file paths
+      const baseUrl = "assets/";
+      const skeletonFile = "swordsman.json";
+      const atlasFile = "swordsman.atlas";
+      // You can change 'animationName' to something like "walk" or "attack"
+      const animationName = "idle";
 
       /**
-       * Initializes Babylon engine and scene.
+       * Initializes the Babylon engine and the scene.
        */
       function init() {
-        // Get canvas
         const canvas = document.getElementById("renderCanvas");
-
-        // Create engine
         engine = new BABYLON.Engine(canvas, true);
-
-        // Create a scene
         scene = new BABYLON.Scene(engine);
 
-        var camera = new BABYLON.FreeCamera(
-          "camera1",
-          new BABYLON.Vector3(0, 5, -10),
+        // Create a basic camera and light
+        const camera = new BABYLON.FreeCamera(
+          "camera",
+          new BABYLON.Vector3(0, 0, -30),
           scene,
         );
-        // Target the camera to scene origin
         camera.setTarget(BABYLON.Vector3.Zero());
-        // Attach the camera to the canvas
-        //camera.attachControl(canvas, false);
 
-        var light = new BABYLON.HemisphericLight(
-          "light1",
+        const light = new BABYLON.HemisphericLight(
+          "light",
           new BABYLON.Vector3(0, 1, 0),
           scene,
         );
 
-        /*var sphere = BABYLON.Mesh.CreateSphere(
-          "sphere1",
-          16,
-          2,
-          scene,
-          false,
-          BABYLON.Mesh.FRONTSIDE,
-        );
-        // Move the sphere upward 1/2 of its height
-        sphere.position.y = 1;*/
-        // Create a built-in "ground" shape; its constructor takes 6 params : name, width, height, subdivision, scene, updatable
-        var ground = BABYLON.Mesh.CreateGround(
-          "ground1",
-          6,
-          6,
-          2,
-          scene,
-          false,
-        );
-        // Return the created scene
-
-        // Create an asset manager for Spine
+        // Create an AssetManager for loading Spine assets
         assetManager = new spine.AssetManager(scene, baseUrl);
-
-        // Queue loads for skeleton JSON and its atlas
         assetManager.loadText(skeletonFile);
         assetManager.loadTextureAtlas(atlasFile);
 
-        // Once the assets are queued, start the render loop
+        // Start the render loop
         engine.runRenderLoop(() => {
-          if (assetManager.isLoadingComplete() && !skeletonMesh) {
-            // Load skeleton once everything is ready
-            loadSkeleton();
+          // Once loading is complete and skeletonData is not yet created
+          if (assetManager.isLoadingComplete() && !skeletonData) {
+            // Parse the skeleton data from JSON and Atlas
+            skeletonData = createSkeletonData();
+            // Create 1,000 Spine animations
+            createMultipleSkeletons(1000);
+            // Create the FPS overlay
+            createFPSUI();
           }
-          if (skeletonMesh) {
-            // Calculate delta time for spine animation
-            const deltaTime = engine.getDeltaTime() / 1000;
-            skeletonMesh.update(deltaTime);
+
+          // Update every SkeletonMesh (Spine animation) in the scene
+          for (let i = 0; i < skeletonMeshes.length; i++) {
+            skeletonMeshes[i].update(engine.getDeltaTime() / 1000);
           }
+
+          // Render the scene
           scene.render();
         });
 
-        // Handle window resize
+        // Handle browser window resizing
         window.addEventListener("resize", () => {
           engine.resize();
         });
       }
 
       /**
-       * Called when the AssetManager has finished loading all required assets.
-       * Creates the Spine SkeletonMesh and adds it to the scene.
+       * Creates SkeletonData from JSON and Atlas files.
        */
-      function loadSkeleton() {
-        // Retrieve text data for .json
+      function createSkeletonData() {
         const jsonData = assetManager.require(skeletonFile);
-
-        // Retrieve the atlas (which also has the .png loaded)
         const atlas = assetManager.require(atlasFile);
 
-        // Create the AtlasAttachmentLoader from your atlas
+        // Create an attachment loader
         const atlasLoader = new spine.AtlasAttachmentLoader(atlas);
-
         // Create a SkeletonJson parser
         const skeletonJson = new spine.SkeletonJson(atlasLoader);
-        skeletonJson.scale = 0.003; // scale your model if needed
 
-        // Parse skeleton data
-        const skeletonData = skeletonJson.readSkeletonData(jsonData);
+        // Adjust scale if needed
+        skeletonJson.scale = 0.1;
 
-        // Create the SkeletonMesh
-        skeletonMesh = new spine.SkeletonMesh("skeletonData", scene, {
-          skeletonData,
-        });
-
-        // Set an animation
-        skeletonMesh.animationState.setAnimation(0, animation, true);
-
-        // Adjust skeletonMesh position or rotation if you like
-        // skeletonMesh.position.y = -100;
-
-        // Add skeletonMesh's root node to the Babylon scene
-        // (Since SkeletonMesh extends TransformNode, we can just add it to the scene)
-        skeletonMesh.setParent(scene.rootNodes[0]);
+        // Parse and return SkeletonData
+        return skeletonJson.readSkeletonData(jsonData);
       }
 
-      // Start everything
+      /**
+       * Creates multiple SkeletonMesh instances and positions them randomly.
+       * @param {number} count Number of SkeletonMesh instances to create
+       */
+      function createMultipleSkeletons(count) {
+        for (let i = 0; i < count; i++) {
+          // Create a new SkeletonMesh from previously parsed SkeletonData
+          const skeletonMesh = new spine.SkeletonMesh(
+            "skeleton-" + i,
+            scene,
+            { skeletonData },
+          );
+
+          // Set an animation
+          skeletonMesh.animationState.setAnimation(
+            0,
+            animationName,
+            true,
+          );
+
+          // Random position between -40~40 (X) and -20~20 (Y)
+          skeletonMesh.position.x = getRandomFloat(-40, 40);
+          skeletonMesh.position.y = getRandomFloat(-20, 20);
+
+          // Scale down or up as needed
+          skeletonMesh.scaling = new BABYLON.Vector3(0.3, 0.3, 0.3);
+
+          // Add to the scene
+          scene.addTransformNode(skeletonMesh);
+
+          // Store in an array for updating later
+          skeletonMeshes.push(skeletonMesh);
+        }
+      }
+
+      /**
+       * Displays an FPS counter on the screen using Babylon GUI.
+       */
+      function createFPSUI() {
+        const guiTexture = BABYLON.GUI.AdvancedDynamicTexture
+          .CreateFullscreenUI("UI");
+        const fpsText = new BABYLON.GUI.TextBlock();
+        fpsText.text = "FPS: 0";
+        fpsText.color = "white";
+        fpsText.fontSize = 24;
+        fpsText.textHorizontalAlignment =
+          BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+        fpsText.textVerticalAlignment =
+          BABYLON.GUI.Control.VERTICAL_ALIGNMENT_TOP;
+        fpsText.left = 20;
+        fpsText.top = 20;
+        guiTexture.addControl(fpsText);
+
+        // Update the FPS text every frame
+        scene.onBeforeRenderObservable.add(() => {
+          fpsText.text = "FPS: " + engine.getFps().toFixed(1);
+        });
+      }
+
+      /**
+       * Returns a random float between min and max.
+       * @param {number} min Minimum value
+       * @param {number} max Maximum value
+       * @returns {number} Random float in the range [min, max]
+       */
+      function getRandomFloat(min, max) {
+        return Math.random() * (max - min) + min;
+      }
+
+      // Entry point
       init();
     </script>
   </body>

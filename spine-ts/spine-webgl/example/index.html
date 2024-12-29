@@ -1,383 +1,326 @@
 <!DOCTYPE html>
 <html>
 <head>
-	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 </head>
+<!-- Spine WebGL runtime -->
 <script src="../dist/iife/spine-webgl.js"></script>
+<!-- jQuery for simple DOM manipulation (optional but used in this example) -->
 <script src="https://code.jquery.com/jquery-3.1.0.min.js"></script>
 <style>
-	* {
-		margin: 0;
-		padding: 0;
-	}
-
-	body,
-	html {
-		height: 100%
-	}
-
-	canvas {
-		position: absolute;
-		width: 100%;
-		height: 100%;
-	}
+  * {
+    margin: 0;
+    padding: 0;
+  }
+  body,
+  html {
+    height: 100%;
+    background: #333;
+  }
+  canvas {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+  }
+  /* Simple overlay for FPS display */
+  #fpsCounter {
+    color: #fff;
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    font: 14px Arial, sans-serif;
+    background: rgba(0,0,0,0.4);
+    padding: 5px 10px;
+    border-radius: 4px;
+  }
+  /* Simple debug checkbox styling */
+  #debugLabel {
+    color: #fff;
+    position: fixed;
+    top: 35px;
+    left: 10px;
+    font: 14px Arial, sans-serif;
+    background: rgba(0,0,0,0.4);
+    padding: 5px 10px;
+    border-radius: 4px;
+    display: inline-block;
+  }
 </style>
-
 <body>
-	<canvas id="canvas"></canvas>
-	<center>
-		<div style="color: #fff; position: fixed; top: 0; width: 100%">
-			<span>Format:</span><select id="formatList"></select>
-			<span>Skeleton:</span><select id="skeletonList"></select>
-			<span>Animation:</span><select id="animationList"></select>
-			<span>Skin:</span><select id="skinList"></select>
-			<span>Debug:</span><input type="checkbox" id="debug">
-		</div>
-	</center>
-	<script>
+  <!-- Main render canvas -->
+  <canvas id="canvas"></canvas>
 
-		let canvas;
-		let ctx;
-		let shader;
-		let batcher;
-		let mvp = new spine.Matrix4();
-		let skeletonRenderer;
-		let assetManager;
+  <!-- FPS counter overlay -->
+  <div id="fpsCounter">FPS: 0</div>
 
-		let debugRenderer;
-		let shapes;
+  <!-- Debug checkbox overlay -->
+  <label id="debugLabel">
+    Debug: <input type="checkbox" id="debug" />
+  </label>
 
-		let lastFrameTime;
-		let skeletons = {};
-		let format = "JSON";
-		let activeSkeleton = "spineboy";
+  <script>
+    let canvas, ctx;
+    let shader, batcher, mvp;
+    let skeletonRenderer, assetManager;
 
-		function init() {
-			// Create the managed WebGL context. Managed contexts will restore resources like shaders
-			// and buffers automatically if the WebGL context is lost.
-			canvas = document.getElementById("canvas");
-			canvas.width = window.innerWidth;
-			canvas.height = window.innerHeight;
-			let config = { alpha: false };
-			ctx = new spine.ManagedWebGLRenderingContext(canvas, config);
-			if (!ctx.gl) {
-				alert('WebGL is unavailable.');
-				return;
-			}
+    // Debug rendering
+    let debugRenderer, shapes, debugShader;
 
-			// Create a simple shader, mesh, model-view-projection matrix, SkeletonRenderer, and AssetManager.
-			shader = spine.Shader.newTwoColoredTextured(ctx);
-			batcher = new spine.PolygonBatcher(ctx);
-			mvp.ortho2d(0, 0, canvas.width - 1, canvas.height - 1);
-			skeletonRenderer = new spine.SkeletonRenderer(ctx);
-			assetManager = new spine.AssetManager(ctx, "assets/");
+    // Timing & FPS calculation
+    let lastFrameTime;
+    let fpsSpan;
 
-			// Create a debug renderer and the ShapeRenderer it needs to render lines.
-			debugRenderer = new spine.SkeletonDebugRenderer(ctx);
-			debugRenderer.drawRegionAttachments = true;
-			debugRenderer.drawBoundingBoxes = true;
-			debugRenderer.drawMeshHull = true;
-			debugRenderer.drawMeshTriangles = true;
-			debugRenderer.drawPaths = true;
-			debugShader = spine.Shader.newColored(ctx);
-			shapes = new spine.ShapeRenderer(ctx);
+    // We will store 1,000 swordsman skeleton instances here
+    const swordsmen = [];
 
-			// Tell AssetManager to load the resources for each skeleton, including the exported data file, the .atlas file and the .png
-			// file for the atlas. We then wait until all resources are loaded in the load() method.
-			assetManager.loadBinary("spineboy-pro.skel");
-			assetManager.loadText("spineboy-pro.json");
-			assetManager.loadTextureAtlas("spineboy-pma.atlas");
-			assetManager.loadBinary("raptor-pro.skel");
-			assetManager.loadText("raptor-pro.json");
-			assetManager.loadTextureAtlas("raptor-pma.atlas");
-			assetManager.loadBinary("tank-pro.skel");
-			assetManager.loadText("tank-pro.json");
-			assetManager.loadTextureAtlas("tank-pma.atlas");
-			assetManager.loadBinary("goblins-pro.skel");
-			assetManager.loadText("goblins-pro.json");
-			assetManager.loadTextureAtlas("goblins-pma.atlas");
-			assetManager.loadBinary("vine-pro.skel");
-			assetManager.loadText("vine-pro.json");
-			assetManager.loadTextureAtlas("vine-pma.atlas");
-			assetManager.loadBinary("stretchyman-pro.skel");
-			assetManager.loadText("stretchyman-pro.json");
-			assetManager.loadTextureAtlas("stretchyman-pma.atlas");
-			assetManager.loadBinary("coin-pro.skel");
-			assetManager.loadText("coin-pro.json");
-			assetManager.loadTextureAtlas("coin-pma.atlas");
-			assetManager.loadBinary("mix-and-match-pro.skel");
-			assetManager.loadText("mix-and-match-pro.json");
-			assetManager.loadTextureAtlas("mix-and-match-pma.atlas");
-			requestAnimationFrame(load);
-		}
+    // Adjust to your actual swordsman file names if needed
+    // (Ensure these files exist in the "assets/" directory.)
+    const SKELETON_JSON = "swordsman.json";
+    const SKELETON_ATLAS = "swordsman.atlas";
 
-		function load() {
-			// Wait until the AssetManager has loaded all resources, then load the skeletons.
-			if (assetManager.isLoadingComplete()) {
-				skeletons = {
-					coin: {
-						Binary: loadSkeleton("coin-pro.skel", "animation", true),
-						JSON: loadSkeleton("coin-pro.json", "animation", true)
-					},
-					goblins: {
-						Binary: loadSkeleton("goblins-pro.skel", "walk", true, "goblin"),
-						JSON: loadSkeleton("goblins-pro.json", "walk", true, "goblin")
-					},
-					"mix-and-match-pro": {
-						Binary: loadSkeleton("mix-and-match-pro.skel", "dance", true, "full-skins/girl-blue-cape"),
-						JSON: loadSkeleton("mix-and-match-pro.json", "dance", true, "full-skins/girl-blue-cape")
-					},
-					raptor: {
-						Binary: loadSkeleton("raptor-pro.skel", "walk", true),
-						JSON: loadSkeleton("raptor-pro.json", "walk", true)
-					},
-					spineboy: {
-						Binary: loadSkeleton("spineboy-pro.skel", "run", true),
-						JSON: loadSkeleton("spineboy-pro.json", "run", true)
-					},
-					stretchyman: {
-						Binary: loadSkeleton("stretchyman-pro.skel", "sneak", true),
-						JSON: loadSkeleton("stretchyman-pro.json", "sneak", true)
-					},
-					tank: {
-						Binary: loadSkeleton("tank-pro.skel", "drive", true),
-						JSON: loadSkeleton("tank-pro.json", "drive", true)
-					},
-					vine: {
-						Binary: loadSkeleton("vine-pro.skel", "grow", true),
-						JSON: loadSkeleton("vine-pro.json", "grow", true)
-					}
-				};
-				setupUI();
-				lastFrameTime = Date.now() / 1000;
-				requestAnimationFrame(render); // Loading is done, call render every frame.
-			} else
-				requestAnimationFrame(load);
-		}
+    // Number of skeletons to create
+    const NUM_SKELETONS = 1000;
 
-		function loadSkeleton(name, initialAnimation, premultipliedAlpha, skin) {
-			if (skin === undefined) skin = "default";
+    function init() {
+      // Setup references
+      canvas = document.getElementById("canvas");
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
 
-			// Load the texture atlas using name.atlas from the AssetManager.
-			let atlas = assetManager.require(name.replace(/(?:-ess|-pro)\.(skel|json)/, "") + (premultipliedAlpha ? "-pma" : "") + ".atlas");
+      // Simple config object for WebGL
+      let config = { alpha: false };
+      ctx = new spine.ManagedWebGLRenderingContext(canvas, config);
+      if (!ctx.gl) {
+        alert('WebGL is unavailable.');
+        return;
+      }
 
-			// Create an AtlasAttachmentLoader that resolves region, mesh, boundingbox and path attachments
-			let atlasLoader = new spine.AtlasAttachmentLoader(atlas);
+      // Create the shader, batcher, matrix, skeleton renderer, and asset manager
+      shader = spine.Shader.newTwoColoredTextured(ctx);
+      batcher = new spine.PolygonBatcher(ctx);
+      mvp = new spine.Matrix4();
+      mvp.ortho2d(0, 0, canvas.width - 1, canvas.height - 1);
+      skeletonRenderer = new spine.SkeletonRenderer(ctx);
+      assetManager = new spine.AssetManager(ctx, "assets/");
 
-			// Create a skeleton loader instance for parsing the skeleton data file.
-			let skeletonLoader = name.endsWith(".skel") ? new spine.SkeletonBinary(atlasLoader) : new spine.SkeletonJson(atlasLoader);
+      // Debug-related objects
+      debugRenderer = new spine.SkeletonDebugRenderer(ctx);
+      debugRenderer.drawRegionAttachments = true;
+      debugRenderer.drawBoundingBoxes = true;
+      debugRenderer.drawMeshHull = true;
+      debugRenderer.drawMeshTriangles = true;
+      debugRenderer.drawPaths = true;
+      debugShader = spine.Shader.newColored(ctx);
+      shapes = new spine.ShapeRenderer(ctx);
 
-			// Set the scale to apply during parsing, parse the file, and create a new skeleton.
-			skeletonLoader.scale = 1;
-			let skeletonData = skeletonLoader.readSkeletonData(assetManager.require(name));
-			let skeleton = new spine.Skeleton(skeletonData);
-			skeleton.setSkinByName(skin);
-			let bounds = calculateSetupPoseBounds(skeleton);
+      // Load the swordsman assets
+      assetManager.loadText(SKELETON_JSON);
+      assetManager.loadTextureAtlas(SKELETON_ATLAS);
 
-			// Create an AnimationState, and set the initial animation in looping mode.
-			let animationStateData = new spine.AnimationStateData(skeleton.data);
-			let animationState = new spine.AnimationState(animationStateData);
-			if (name == "spineboy-pro.skel" || name == "spineboy-pro.json") {
-				animationStateData.setMix("walk", "run", 1.5)
-				animationStateData.setMix("run", "jump", 0.2)
-				animationStateData.setMix("jump", "run", 0.4);
-				animationState.setEmptyAnimation(0, 0);
-				let entry = animationState.addAnimation(0, "walk", true, 0);
-				entry.mixDuration = 1;
-				animationState.addAnimation(0, "run", true, 1.5);
-				animationState.addAnimation(0, "jump", false, 2);
-				animationState.addAnimation(0, "run", true, 0);
-				animationState.addEmptyAnimation(0, 1, 1);
-				entry = animationState.addAnimation(0, "walk", true, 1.5);
-				entry.mixDuration = 1;
-			} else
-				animationState.setAnimation(0, initialAnimation, true);
+      // Prepare for load completion
+      requestAnimationFrame(load);
+    }
 
-			function log(message) {
-				if ($('#debug').is(':checked')) console.log(message);
-			}
-			animationState.addListener({
-				start: function (track) {
-					log("Animation on track " + track.trackIndex + " started");
-				},
-				interrupt: function (track) {
-					log("Animation on track " + track.trackIndex + " interrupted");
-				},
-				end: function (track) {
-					log("Animation on track " + track.trackIndex + " ended");
-				},
-				disposed: function (track) {
-					log("Animation on track " + track.trackIndex + " disposed");
-				},
-				complete: function (track) {
-					log("Animation on track " + track.trackIndex + " completed");
-				},
-				event: function (track, event) {
-					log("Event on track " + track.trackIndex + ": " + JSON.stringify(event));
-				}
-			})
+    function load() {
+      // Wait until assets are fully loaded
+      if (assetManager.isLoadingComplete()) {
+        // Create one "template" skeleton from the JSON/Atlas
+        const mainSkeletonData = loadSkeleton(SKELETON_JSON, "idle", true);
 
-			// Pack everything up and return to caller.
-			return { skeleton: skeleton, state: animationState, bounds: bounds, premultipliedAlpha: premultipliedAlpha };
-		}
+        // Clone this template multiple times
+        for (let i = 0; i < NUM_SKELETONS; i++) {
+          swordsmen.push(cloneSkeleton(mainSkeletonData));
+        }
 
-		function calculateSetupPoseBounds(skeleton) {
-			skeleton.setToSetupPose();
-			skeleton.updateWorldTransform(spine.Physics.update);
-			let offset = new spine.Vector2();
-			let size = new spine.Vector2();
-			skeleton.getBounds(offset, size, []);
-			return { offset: offset, size: size };
-		}
+        // Set up the initial time for FPS calculation
+        lastFrameTime = Date.now() / 1000;
 
-		function setupUI() {
-			let formatList = $("#formatList");
-			formatList.append($("<option>Binary</option>"));
-			formatList.append($("<option selected>JSON</option>"));
-			let skeletonList = $("#skeletonList");
-			for (let skeletonName in skeletons) {
-				let option = $("<option></option>");
-				option.attr("value", skeletonName).text(skeletonName);
-				if (skeletonName === activeSkeleton) option.attr("selected", "selected");
-				skeletonList.append(option);
-			}
-			let setupAnimationUI = function () {
-				let animationList = $("#animationList");
-				animationList.empty();
-				let skeleton = skeletons[activeSkeleton][format].skeleton;
-				let state = skeletons[activeSkeleton][format].state;
-				let activeAnimation = state.tracks[0].animation.name;
-				for (let i = 0; i < skeleton.data.animations.length; i++) {
-					let name = skeleton.data.animations[i].name;
-					let option = $("<option></option>");
-					option.attr("value", name).text(name);
-					if (name === activeAnimation) option.attr("selected", "selected");
-					animationList.append(option);
-				}
+        // Start the main render loop
+        requestAnimationFrame(render);
+      } else {
+        requestAnimationFrame(load);
+      }
+    }
 
-				animationList.change(function () {
-					let state = skeletons[activeSkeleton][format].state;
-					let skeleton = skeletons[activeSkeleton][format].skeleton;
-					let animationName = $("#animationList option:selected").text();
-					skeleton.setToSetupPose();
-					state.setAnimation(0, animationName, true);
-				})
-			}
+    /**
+     * Loads one swordsman skeleton from JSON and Atlas.
+     * @param {string} name - The JSON file name
+     * @param {string} initialAnimation - The initial animation to play
+     * @param {boolean} premultipliedAlpha - Whether the atlas uses PMA
+     * @returns An object containing the skeleton, state, bounds, and PMA info
+     */
+    function loadSkeleton(name, initialAnimation, premultipliedAlpha) {
+      // Retrieve the texture atlas from the AssetManager
+      let atlas = assetManager.require(SKELETON_ATLAS);
 
-			let setupSkinUI = function () {
-				let skinList = $("#skinList");
-				skinList.empty();
-				let skeleton = skeletons[activeSkeleton][format].skeleton;
-				let activeSkin = skeleton.skin == null ? "default" : skeleton.skin.name;
-				for (let i = 0; i < skeleton.data.skins.length; i++) {
-					let name = skeleton.data.skins[i].name;
-					let option = $("<option></option>");
-					option.attr("value", name).text(name);
-					if (name === activeSkin) option.attr("selected", "selected");
-					skinList.append(option);
-				}
+      // Create an AtlasAttachmentLoader
+      let atlasLoader = new spine.AtlasAttachmentLoader(atlas);
 
-				skinList.change(function () {
-					let skeleton = skeletons[activeSkeleton][format].skeleton;
-					let skinName = $("#skinList option:selected").text();
-					skeleton.setSkinByName(skinName);
-					skeleton.setSlotsToSetupPose();
-				})
-			}
+      // Decide if the file is JSON or binary. We'll assume JSON here.
+      let skeletonLoader = new spine.SkeletonJson(atlasLoader);
 
-			skeletonList.change(function () {
-				activeSkeleton = $("#skeletonList option:selected").text();
-				setupAnimationUI();
-				setupSkinUI();
-			})
+      // Parse the skeleton JSON
+      skeletonLoader.scale = 1;
+      let skeletonData = skeletonLoader.readSkeletonData(assetManager.require(name));
+      let skeleton = new spine.Skeleton(skeletonData);
 
-			formatList.change(function () {
-				format = $("#formatList option:selected").text();
-				setupAnimationUI();
-				setupSkinUI();
-			})
+      // Calculate initial bounds
+      let bounds = calculateSetupPoseBounds(skeleton);
 
-			setupAnimationUI();
-			setupSkinUI();
-		}
+      // Create AnimationState
+      let animationStateData = new spine.AnimationStateData(skeleton.data);
+      let animationState = new spine.AnimationState(animationStateData);
+      animationState.setAnimation(0, initialAnimation, true);
 
-		function render() {
-			let gl = ctx.gl;
-			let now = Date.now() / 1000;
-			let delta = now - lastFrameTime;
-			lastFrameTime = now;
+      return {
+        skeleton: skeleton,
+        state: animationState,
+        bounds: bounds,
+        premultipliedAlpha: premultipliedAlpha
+      };
+    }
 
-			// Update the MVP matrix to adjust for canvas size changes
-			resize();
+    /**
+     * Clones the original skeleton data (reusing the same atlas data) to create a new instance.
+     * Positions each skeleton randomly for demonstration purposes.
+     * @param {object} template - The main skeleton object
+     * @returns {object} A new instance with separate skeleton and state, plus random positions
+     */
+    function cloneSkeleton(template) {
+      // Create a new Skeleton from the same skeletonData
+      let newSkeleton = new spine.Skeleton(template.skeleton.data);
+      newSkeleton.setToSetupPose();
+      newSkeleton.updateWorldTransform(spine.Physics.update);
 
-			gl.clearColor(0.3, 0.3, 0.3, 1);
-			gl.clear(gl.COLOR_BUFFER_BIT);
+      // Create a new AnimationState
+      let newStateData = new spine.AnimationStateData(newSkeleton.data);
+      let newState = new spine.AnimationState(newStateData);
 
-			// Apply the animation state based on the delta time.
-			let skeleton = skeletons[activeSkeleton][format].skeleton;
-			let state = skeletons[activeSkeleton][format].state;
-			let bounds = skeletons[activeSkeleton][format].bounds;
-			let premultipliedAlpha = skeletons[activeSkeleton][format].premultipliedAlpha;
-			state.update(delta);
-			state.apply(skeleton);
-			skeleton.updateWorldTransform(spine.Physics.update);
+      // Copy the original animation setup
+      // (We can copy existing tracks or just set from scratch)
+      const track0 = template.state.tracks[0];
+      if (track0) {
+        newState.setAnimation(0, track0.animation.name, true);
+      }
 
-			// Bind the shader and set the texture and model-view-projection matrix.
-			shader.bind();
-			shader.setUniformi(spine.Shader.SAMPLER, 0);
-			shader.setUniform4x4f(spine.Shader.MVP_MATRIX, mvp.values);
+      // Random position within the canvas area
+      // Let's place them within some portion of the screen (e.g., 0.2 to 0.8 of width/height)
+      let rndX = Math.random() * canvas.width * 0.6 + canvas.width * 0.2;
+      let rndY = Math.random() * canvas.height * 0.6 + canvas.height * 0.2;
 
-			// Start the batch and tell the SkeletonRenderer to render the active skeleton.
-			batcher.begin(shader);
+      // Return a new object containing the new skeleton and state, plus random transform
+      return {
+        skeleton: newSkeleton,
+        state: newState,
+        premultipliedAlpha: template.premultipliedAlpha,
+        x: rndX,
+        y: rndY
+      };
+    }
 
-			skeletonRenderer.premultipliedAlpha = premultipliedAlpha;
-			skeletonRenderer.draw(batcher, skeleton);
-			batcher.end();
+    /**
+     * Calculates setup pose bounds for centering or sizing logic if needed.
+     */
+    function calculateSetupPoseBounds(skeleton) {
+      skeleton.setToSetupPose();
+      skeleton.updateWorldTransform(spine.Physics.update);
+      let offset = new spine.Vector2();
+      let size = new spine.Vector2();
+      skeleton.getBounds(offset, size, []);
+      return { offset: offset, size: size };
+    }
 
-			shader.unbind();
+    /**
+     * Main render loop.
+     */
+    function render() {
+      let gl = ctx.gl;
+      let now = Date.now() / 1000;
+      let delta = now - lastFrameTime;
+      lastFrameTime = now;
 
-			// Draw debug information.
-			let debug = $('#debug').is(':checked');
-			if (debug) {
-				debugShader.bind();
-				debugShader.setUniform4x4f(spine.Shader.MVP_MATRIX, mvp.values);
-				debugRenderer.premultipliedAlpha = premultipliedAlpha;
-				shapes.begin(debugShader);
-				debugRenderer.draw(shapes, skeleton);
-				shapes.end();
-				debugShader.unbind();
-			}
+      // Calculate and display FPS
+      let fps = (1 / delta).toFixed(1);
+      document.getElementById("fpsCounter").innerText = `FPS: ${fps}`;
 
-			requestAnimationFrame(render);
-		}
+      resizeCanvasAndUpdateMVP();
 
-		function resize() {
-			let w = canvas.clientWidth;
-			let h = canvas.clientHeight;
-			if (canvas.width != w || canvas.height != h) {
-				canvas.width = w;
-				canvas.height = h;
-			}
+      // Clear the background
+      gl.clearColor(0.3, 0.3, 0.3, 1);
+      gl.clear(gl.COLOR_BUFFER_BIT);
 
-			// Calculations to center the skeleton in the canvas.
-			let bounds = skeletons[activeSkeleton][format].bounds;
-			let centerX = bounds.offset.x + bounds.size.x / 2;
-			let centerY = bounds.offset.y + bounds.size.y / 2;
-			let scaleX = bounds.size.x / canvas.width;
-			let scaleY = bounds.size.y / canvas.height;
-			let scale = Math.max(scaleX, scaleY) * 2;
-			if (scale < 1) scale = 1;
-			let width = canvas.width * scale;
-			let height = canvas.height * scale;
+      // Render each swordsman
+      shader.bind();
+      shader.setUniformi(spine.Shader.SAMPLER, 0);
+      shader.setUniform4x4f(spine.Shader.MVP_MATRIX, mvp.values);
 
-			mvp.ortho2d(centerX - width / 2, centerY - height / 2, width, height);
-			ctx.gl.viewport(0, 0, canvas.width, canvas.height);
-		}
+      batcher.begin(shader);
 
-		init();
+      // For each skeleton instance, update and draw
+      swordsmen.forEach((instance) => {
+        // Update animation
+        instance.state.update(delta);
+        instance.state.apply(instance.skeleton);
+        instance.skeleton.updateWorldTransform(spine.Physics.update);
 
-	</script>
+        // Position the skeleton (translation)
+        // We'll do a simple approach: move the skeleton by adjusting bone 0 or using offset.
+        // For simplicity, let's transform by setting skeleton.x / y. 
+        // The spine-webgl Skeleton doesn't have built-in x/y, so let's temporarily move all bones.
+
+        // Move the entire skeleton by adjusting the root bone's world position
+        let rootBone = instance.skeleton.bones[0];
+        rootBone.x = instance.x;
+        rootBone.y = instance.y;
+        rootBone.rotation = 0; // If you want random rotation, set it here.
+
+        // Re-update transforms after moving root
+        instance.skeleton.updateWorldTransform(spine.Physics.update);
+
+        // Let the skeletonRenderer know if it should use premultiplied alpha
+        skeletonRenderer.premultipliedAlpha = instance.premultipliedAlpha;
+        // Draw
+        skeletonRenderer.draw(batcher, instance.skeleton);
+      });
+
+      batcher.end();
+      shader.unbind();
+
+      // Debug rendering if checked
+      if ($("#debug").is(":checked")) {
+        debugShader.bind();
+        debugShader.setUniform4x4f(spine.Shader.MVP_MATRIX, mvp.values);
+        shapes.begin(debugShader);
+        swordsmen.forEach((instance) => {
+          debugRenderer.premultipliedAlpha = instance.premultipliedAlpha;
+          debugRenderer.draw(shapes, instance.skeleton);
+        });
+        shapes.end();
+        debugShader.unbind();
+      }
+
+      // Request next frame
+      requestAnimationFrame(render);
+    }
+
+    /**
+     * Adjusts the canvas size to match the client size and updates the orthographic projection (mvp).
+     */
+    function resizeCanvasAndUpdateMVP() {
+      let w = canvas.clientWidth;
+      let h = canvas.clientHeight;
+      if (canvas.width !== w || canvas.height !== h) {
+        canvas.width = w;
+        canvas.height = h;
+      }
+      // Keep it simple: Just set an ortho that matches the entire canvas
+      mvp.ortho2d(0, 0, canvas.width, canvas.height);
+      ctx.gl.viewport(0, 0, canvas.width, canvas.height);
+    }
+
+    // Initialize everything
+    init();
+  </script>
 </body>
-
 </html>

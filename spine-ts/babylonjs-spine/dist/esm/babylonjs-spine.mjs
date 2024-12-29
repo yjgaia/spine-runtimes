@@ -11942,7 +11942,6 @@ var _MeshBatcher = class {
       this._scene
     );
     mat.spineTexture = texture;
-    mat.diffuseTexture = texture;
     mat.emissiveTexture = texture;
     mat.disableLighting = true;
     mat.backFaceCulling = false;
