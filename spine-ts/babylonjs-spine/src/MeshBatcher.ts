@@ -6,7 +6,7 @@ import { BlendMode } from "@esotericsoftware/spine-core";
  *
  * A material interface with an optional spineTexture to store the actual Babylon Texture used by Spine.
  */
-export interface MaterialWithTexture extends BABYLON.Material {
+export interface MaterialWithTexture extends BABYLON.StandardMaterial {
 	spineTexture?: BABYLON.Texture;
 }
 
@@ -261,11 +261,11 @@ export class MeshBatcher {
 			this._scene,
 		) as MaterialWithTexture;
 		mat.spineTexture = texture;
-		//mat.diffuseTexture = texture;
-		//mat.emissiveTexture = texture; // sometimes used to avoid lighting in basic usage
-		//mat.disableLighting = true;
+		mat.diffuseTexture = texture;
+		mat.emissiveTexture = texture; // sometimes used to avoid lighting in basic usage
+		mat.disableLighting = true;
 		mat.backFaceCulling = false;
-		//mat.useAlphaFromDiffuseTexture = true;
+		mat.useAlphaFromDiffuseTexture = true;
 
 		switch (blendMode) {
 			case BlendMode.Normal:
