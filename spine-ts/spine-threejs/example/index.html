@@ -1,7 +1,8 @@
+<!DOCTYPE html>
 <html>
   <head>
     <meta charset="UTF-8" />
-    <title>spine-threejs</title>
+    <title>spine-threejs 1000 Swordsmen</title>
     <style>
       * {
         margin: 0;
@@ -11,6 +12,7 @@
       body,
       html {
         height: 100%;
+        background: #333;
       }
 
       canvas {
@@ -18,138 +20,186 @@
         width: 100%;
         height: 100%;
       }
+
+      /* Simple overlay for FPS display */
+      #fpsCounter {
+        color: #fff;
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        font: 14px Arial, sans-serif;
+        background: rgba(0, 0, 0, 0.4);
+        padding: 4px 8px;
+        border-radius: 4px;
+      }
     </style>
 
+    <!-- Import map for modules (spine-threejs, three, etc.) -->
     <script type="importmap">
     {
-        "imports": {
-            "three": "https://cdn.jsdelivr.net/npm/three@0.162.0/build/three.module.js",
-            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.162.0/examples/jsm/",
-            "spine-threejs": "../dist/esm/spine-threejs.mjs"
-        }
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.162.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.162.0/examples/jsm/",
+        "spine-threejs": "../dist/esm/spine-threejs.mjs"
+      }
     }
     </script>
   </head>
 
   <body>
+    <!-- DOM overlay for FPS -->
+    <div id="fpsCounter">FPS: 0</div>
+
     <script type="module">
       import * as THREE from "three";
       import * as spine from "spine-threejs";
-      import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
+      import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-      let scene, camera, renderer;
-      let geometry, material, mesh, skeletonMesh;
-      let atlas;
-      let atlasLoader;
+      let scene, camera, renderer, canvas, controls;
       let assetManager;
-      let canvas;
-      let controls;
+      let skeletonData; // We'll reuse the loaded skeleton data
+      const skeletonMeshes = []; // Array to store 1,000 swordsman SkeletonMesh
+      const NUM_SKELETONS = 100;
+
+      // File paths for the swordsman skeleton (adjust if needed)
+      const baseUrl = "assets/";
+      const skeletonFile = "swordsman.json";
+      const atlasFile = skeletonFile
+        .replace("-pro", "")
+        .replace("-ess", "")
+        .replace(".json", ".atlas");
+      const animationName = "walk"; // Which animation to play
+
+      // For measuring FPS
       let lastFrameTime = Date.now() / 1000;
 
-      let baseUrl = "assets/";
-      let skeletonFile = "raptor-pro.json";
-      let atlasFile = skeletonFile
-          .replace("-pro", "")
-          .replace("-ess", "")
-          .replace(".json", ".atlas");
-      let animation = "walk";
-
       function init() {
-          // create the THREE.JS camera, scene and renderer (WebGL)
-          let width = window.innerWidth,
-          height = window.innerHeight;
-          camera = new THREE.PerspectiveCamera(75, width / height, 1, 3000);
-          camera.position.y = 100;
-          camera.position.z = 400;
-          scene = new THREE.Scene();
-          renderer = new THREE.WebGLRenderer();
-          renderer.setSize(width, height);
-          document.body.appendChild(renderer.domElement);
-          canvas = renderer.domElement;
-          controls = new OrbitControls(camera, renderer.domElement);
+        // Basic Three.js setup
+        const width = window.innerWidth;
+        const height = window.innerHeight;
 
-          // load the assets required to display the Raptor model
-          assetManager = new spine.AssetManager(baseUrl);
-          assetManager.loadText(skeletonFile);
-          assetManager.loadTextureAtlas(atlasFile);
+        camera = new THREE.PerspectiveCamera(75, width / height, 1, 3000);
+        camera.position.set(0, 100, 400);
 
-          requestAnimationFrame(load);
+        scene = new THREE.Scene();
+
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(width, height);
+        document.body.appendChild(renderer.domElement);
+        canvas = renderer.domElement;
+
+        controls = new OrbitControls(camera, renderer.domElement);
+
+        // Spine asset loading
+        assetManager = new spine.AssetManager(baseUrl);
+        assetManager.loadText(skeletonFile);
+        assetManager.loadTextureAtlas(atlasFile);
+
+        // Start the loading check
+        requestAnimationFrame(loadAssets);
       }
 
-      function load(name, scale) {
-          if (assetManager.isLoadingComplete()) {
-          // Add a box to the scene to which we attach the skeleton mesh
-          geometry = new THREE.BoxGeometry(200, 200, 200);
-          material = new THREE.MeshBasicMaterial({
-              color: 0xff0000,
-              wireframe: true,
-          });
-          mesh = new THREE.Mesh(geometry, material);
-          scene.add(mesh);
+      function loadAssets() {
+        // Check if all assets are loaded
+        if (assetManager.isLoadingComplete()) {
+          // Parse the skeleton data once, then clone for multiple instances
+          skeletonData = createSkeletonData();
 
-          // Load the texture atlas using name.atlas and name.png from the AssetManager.
-          // The function passed to TextureAtlas is used to resolve relative paths.
-          atlas = assetManager.require(atlasFile);
+          // Create 1000 skeletons
+          createMultipleSkeletons(NUM_SKELETONS);
 
-          // Create a AtlasAttachmentLoader that resolves region, mesh, boundingbox and path attachments
-          atlasLoader = new spine.AtlasAttachmentLoader(atlas);
-
-          // Create a SkeletonJson instance for parsing the .json file.
-          let skeletonJson = new spine.SkeletonJson(atlasLoader);
-
-          // Set the scale to apply during parsing, parse the file, and create a new skeleton.
-          skeletonJson.scale = 0.4;
-          let skeletonData = skeletonJson.readSkeletonData(
-              assetManager.require(skeletonFile)
-          );
-
-          // Create a SkeletonMesh from the data and attach it to the scene
-          skeletonMesh = new spine.SkeletonMesh({ skeletonData });
-          skeletonMesh.state.setAnimation(0, animation, true);
-          mesh.add(skeletonMesh);
-
+          // Begin the render loop
           requestAnimationFrame(render);
-          } else requestAnimationFrame(load);
+        } else {
+          requestAnimationFrame(loadAssets);
+        }
       }
 
-      let lastTime = Date.now();
+      /**
+       * Creates the skeleton data (SkeletonJson -> SkeletonData).
+       */
+      function createSkeletonData() {
+        const atlas = assetManager.require(atlasFile);
+        const atlasLoader = new spine.AtlasAttachmentLoader(atlas);
+        const skeletonJson = new spine.SkeletonJson(atlasLoader);
+
+        // Adjust scale as needed
+        skeletonJson.scale = 0.4;
+
+        // Parse the skeleton JSON
+        const rawSkeletonData = assetManager.require(skeletonFile);
+        return skeletonJson.readSkeletonData(rawSkeletonData);
+      }
+
+      /**
+       * Instantiates multiple SkeletonMesh objects from the loaded skeletonData.
+       * @param {number} count Number of skeleton meshes to create
+       */
+      function createMultipleSkeletons(count) {
+        for (let i = 0; i < count; i++) {
+          // Create a SkeletonMesh
+          const skeletonMesh = new spine.SkeletonMesh({ skeletonData });
+          skeletonMesh.state.setAnimation(0, animationName, true);
+
+          // Randomly position each skeleton in front of the camera
+          // Adjust range or positions as desired
+          const rangeX = 800; // how wide
+          const rangeY = 400; // how tall
+          skeletonMesh.position.x = (Math.random() - 0.5) * rangeX;
+          skeletonMesh.position.y = (Math.random() - 0.5) * rangeY;
+          // They can also be spread out in Z if you like
+          // skeletonMesh.position.z = (Math.random() - 0.5) * 500;
+
+          scene.add(skeletonMesh);
+          skeletonMeshes.push(skeletonMesh);
+        }
+      }
+
+      /**
+       * Main render loop: updates animations, calculates FPS, and re-renders the scene.
+       */
       function render() {
-          // calculate delta time for animation purposes
-          let now = Date.now() / 1000;
-          let delta = now - lastFrameTime;
-          lastFrameTime = now;
+        // Calculate delta time
+        const now = Date.now() / 1000;
+        const delta = now - lastFrameTime;
+        lastFrameTime = now;
 
-          // resize canvas to use full page, adjust camera/renderer
-          resize();
+        // Update FPS display
+        const fps = (1 / delta).toFixed(1);
+        console.log(`FPS: ${fps}`);
 
-          // Update orbital controls
-          controls.update();
+        // Resize if needed
+        resize();
 
-          // update the animation
-          skeletonMesh.update(delta);
+        // Update OrbitControls
+        controls.update();
 
-          // render the scene
-          renderer.render(scene, camera);
+        // Update each skeleton's animation
+        for (let i = 0; i < skeletonMeshes.length; i++) {
+          skeletonMeshes[i].update(delta);
+        }
 
-          requestAnimationFrame(render);
+        // Render the scene
+        renderer.render(scene, camera);
+
+        // Schedule next frame
+        requestAnimationFrame(render);
       }
 
       function resize() {
-          let w = window.innerWidth;
-          let h = window.innerHeight;
-          if (canvas.width != w || canvas.height != h) {
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+        if (canvas.width !== w || canvas.height !== h) {
           canvas.width = w;
           canvas.height = h;
-          }
+        }
 
-          camera.aspect = w / h;
-          camera.updateProjectionMatrix();
-
-          renderer.setSize(w, h);
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+        renderer.setSize(w, h);
       }
 
       init();
-
     </script>
   </body>
 </html>
