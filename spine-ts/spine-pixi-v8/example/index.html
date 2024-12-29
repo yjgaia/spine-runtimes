@@ -1,15 +1,41 @@
+<!DOCTYPE html>
 <html>
   <head>
     <meta charset="UTF-8" />
-    <title>spine-pixi-v8</title>
-    <script src="https://cdn.jsdelivr.net/npm/pixi.js@8.4.1/dist/pixi.min.js"></script>
+    <title>Spine-Pixi V8 - 1000 Swordsman Example</title>
+    <!-- PixiJS 8.x -->
+    <script
+      src="https://cdn.jsdelivr.net/npm/pixi.js@8.4.1/dist/pixi.min.js"
+    ></script>
+    <!-- Spine-Pixi V8 (or your custom build path) -->
     <script src="../dist/iife/spine-pixi-v8.js"></script>
-    <link rel="stylesheet" href="../../index.css">
+    <style>
+      html, body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        background: #2c3e50;
+      }
+      #fpsCounter {
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        font-family: Arial, sans-serif;
+        font-size: 14px;
+        color: #fff;
+        background: rgba(0, 0, 0, 0.4);
+        padding: 5px 10px;
+        border-radius: 4px;
+        z-index: 9999;
+      }
+    </style>
   </head>
-
   <body>
+    <div id="fpsCounter">FPS: 0</div>
+
     <script>
       (async function () {
+        // Create the Pixi Application
         var app = new PIXI.Application();
         await app.init({
           width: window.innerWidth,
@@ -18,33 +44,67 @@
           autoDensity: true,
           resizeTo: window,
           backgroundColor: 0x2c3e50,
-          hello: true,
-        })
+        });
         document.body.appendChild(app.view);
 
-        // Pre-load the skeleton data and atlas. You can also load .json skeleton data.
-        PIXI.Assets.add({alias: "spineboyData", src: "./assets/spineboy-pro.skel"});
-        PIXI.Assets.add({alias: "spineboyAtlas", src: "./assets/spineboy-pma.atlas"});
-        await PIXI.Assets.load(["spineboyData", "spineboyAtlas"]);
-
-        // Create the spine display object
-        const spineboy = spine.Spine.from({skeleton: "spineboyData", atlas: "spineboyAtlas",
-          scale: 0.5,
+        // Add assets (make sure "swordsman.json" and "swordsman.atlas" exist in ./assets/)
+        PIXI.Assets.add({
+          alias: "swordsmanData",
+          src: "./assets/swordsman.json",
+        });
+        PIXI.Assets.add({
+          alias: "swordsmanAtlas",
+          src: "./assets/swordsman.atlas",
         });
 
-        // Set the default mix time to use when transitioning
-        // from one animation to the next.
-        spineboy.state.data.defaultMix = 0.2;
+        // Load both JSON (skeleton data) and Atlas
+        await PIXI.Assets.load(["swordsmanData", "swordsmanAtlas"]);
 
-        // Set animation "run" on track 0, looped.
-        spineboy.state.setAnimation(0, "run", true);
+        // Number of spine instances
+        const NUM_INSTANCES = 1000;
 
-        // Center the spine object on screen.
-        spineboy.x = window.innerWidth / 2;
-        spineboy.y = window.innerHeight / 2 + spineboy.getBounds().height / 2;
+        // Create a container for all swordsman instances (optional, for organization)
+        const swordsmanContainer = new PIXI.Container();
+        app.stage.addChild(swordsmanContainer);
 
-        // Add the display object to the stage.
-        app.stage.addChild(spineboy);
+        // Create 1000 Swordsman Spine instances
+        for (let i = 0; i < NUM_INSTANCES; i++) {
+          // Create a new swordsman from the loaded resources
+          const swordsman = spine.Spine.from({
+            skeleton: "swordsmanData",
+            atlas: "swordsmanAtlas",
+            // Adjust scale based on your model's original size
+            scale: 0.3,
+          });
+
+          // Set an animation (must exist in your .json/.atlas data)
+          // e.g., "idle", "walk", "run", etc.
+          swordsman.state.setAnimation(0, "walk", true);
+
+          // Random position within the window
+          swordsman.x = Math.random() * window.innerWidth;
+          swordsman.y = Math.random() * window.innerHeight;
+
+          // Add this instance to the container
+          swordsmanContainer.addChild(swordsman);
+        }
+
+        // Simple FPS monitor
+        const fpsCounter = document.getElementById("fpsCounter");
+        let lastTime = performance.now();
+        let frameCount = 0;
+
+        app.ticker.add(() => {
+          frameCount++;
+          let now = performance.now();
+          let elapsed = now - lastTime;
+          if (elapsed >= 1000) {
+            let fps = (frameCount * 1000) / elapsed;
+            fpsCounter.innerText = `FPS: ${fps.toFixed(1)}`;
+            frameCount = 0;
+            lastTime = now;
+          }
+        });
       })();
     </script>
   </body>
