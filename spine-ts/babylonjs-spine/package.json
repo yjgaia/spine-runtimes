@@ -1,0 +1,31 @@
+{
+  "name": "babylonjs-spine",
+  "version": "4.2.70",
+  "description": "The Spine Runtime for the BabylonJS.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "files": [
+    "dist/**/*",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yjgaia/spine-runtimes.git"
+  },
+  "keywords": [
+    "gamedev",
+    "animations",
+    "2d",
+    "spine",
+    "game-dev",
+    "runtimes",
+    "skeletal"
+  ],
+  "author": "yj.gaia",
+  "dependencies": {
+    "@esotericsoftware/spine-core": "4.2.70"
+  }
+}
